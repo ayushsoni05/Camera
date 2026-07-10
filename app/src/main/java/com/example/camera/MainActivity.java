@@ -10,11 +10,15 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.MediaStore;
 import android.util.Log;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -24,6 +28,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.FocusMeteringAction;
+import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.MeteringPoint;
@@ -35,6 +40,9 @@ import androidx.core.content.ContextCompat;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.mlkit.vision.face.FaceDetection;
+import com.google.mlkit.vision.face.FaceDetector;
+import com.google.mlkit.vision.face.FaceDetectorOptions;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -93,35 +101,43 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
     private boolean isNightSupported = false;
     private boolean isHdrSupported = false;
 
-    // Recording duration timer
-    private final Handler timerHandler = new Handler(Looper.getMainLooper());
-    private long recordingStartTime = 0;
-    private final Runnable timerRunnable = new Runnable() {
+    // Recording duration progress ring
+    private int recordingProgressValue = 0;
+    private final Handler progressHandler = new Handler(Looper.getMainLooper());
+    private final Runnable progressRunnable = new Runnable() {
         @Override
         public void run() {
-            if (activeRecording == null) return;
-            long millis = System.currentTimeMillis() - recordingStartTime;
-            int seconds = (int) (millis / 1000);
-            int minutes = seconds / 60;
-            seconds = seconds % 60;
-            
-            TextView timerText = findViewById(R.id.recording_timer);
-            if (timerText != null) {
-                timerText.setText(String.format(Locale.US, "%02d:%02d", minutes, seconds));
+            if (activeRecording != null) {
+                recordingProgressValue += 1;
+                ProgressBar pg = findViewById(R.id.record_progress);
+                if (pg != null) {
+                    pg.setProgress(recordingProgressValue);
+                }
+                if (recordingProgressValue >= 100) {
+                    stopVideoRecordingForSnap();
+                } else {
+                    progressHandler.postDelayed(this, 150); // 150ms * 100 = 15 seconds limit
+                }
             }
-            
-            View dot = findViewById(R.id.recording_dot);
-            if (dot != null) {
-                dot.setVisibility(dot.getVisibility() == View.VISIBLE ? View.INVISIBLE : View.VISIBLE);
-            }
-            
-            timerHandler.postDelayed(this, 1000);
         }
     };
 
-    // Gallery Paging Logic
+    // Face detector and Lenses
+    private FaceDetector faceDetector;
+    private String activeLensName = "None";
+    private final String[] lensesList = {"None", "Dog", "Glasses", "Crown", "Stache"};
+    private boolean isSmileShutterEnabled = true;
+
+    // Post-capture State
+    private Uri capturedUri;
+    private boolean capturedIsPhoto = true;
+    private String postCaptureFilter = "Original";
+
+    // Memories Drawer Logic
     private List<MediaItem> galleryItems = new ArrayList<>();
-    private GalleryAdapter galleryAdapter;
+    private MemoriesGridAdapter memoriesAdapter;
+    private GalleryAdapter viewerAdapter;
+    private GestureDetector viewFinderGestureDetector;
 
     private static class MediaItem {
         Uri uri;
@@ -149,9 +165,18 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             rotationSensor = sensorManager.getDefaultSensor(android.hardware.Sensor.TYPE_ROTATION_VECTOR);
         }
 
+        // Initialize ML Kit Face Detector
+        FaceDetectorOptions faceOptions = new FaceDetectorOptions.Builder()
+                .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
+                .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
+                .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+                .build();
+        faceDetector = FaceDetection.getClient(faceOptions);
+
         initializeUI();
         setupFilterCarousel();
-        setupModeSelector();
+        setupLensesCarousel();
+        setupGestureDetectors();
 
         cameraExecutor = Executors.newSingleThreadExecutor();
 
@@ -159,6 +184,22 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             initializeExtensionsAndStartCamera();
         } else {
             ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS);
+        }
+
+        // Check if first-run tutorial is needed
+        showTutorialIfNeeded();
+    }
+
+    private void showTutorialIfNeeded() {
+        android.content.SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+        boolean isFirstRun = prefs.getBoolean("is_first_run_snap", true);
+        if (isFirstRun) {
+            View tut = findViewById(R.id.tutorial_overlay);
+            if (tut != null) tut.setVisibility(View.VISIBLE);
+            findViewById(R.id.tutorial_dismiss).setOnClickListener(v -> {
+                if (tut != null) tut.setVisibility(View.GONE);
+                prefs.edit().putBoolean("is_first_run_snap", false).apply();
+            });
         }
     }
 
@@ -170,19 +211,90 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         MaterialButton timerButton = findViewById(R.id.btnTimer);
         SeekBar zoomSlider = findViewById(R.id.zoom_slider);
 
-        if (captureButton != null) captureButton.setOnClickListener(v -> handleCapture());
         if (flipButton != null) flipButton.setOnClickListener(v -> swapCamera());
         if (flashButton != null) flashButton.setOnClickListener(v -> toggleFlash(flashButton));
         if (gridButton != null) gridButton.setOnClickListener(v -> toggleGrid());
         if (timerButton != null) timerButton.setOnClickListener(v -> cycleTimer());
         
         setupZoomAndFocus(zoomSlider);
+        setupShutterTouchGestures(captureButton);
+        setupPostCaptureControls();
+        setupMemoriesControls();
         loadLastSavedThumbnail();
+    }
 
-        View galleryContainer = findViewById(R.id.gallery_container);
-        if (galleryContainer != null) {
-            galleryContainer.setOnClickListener(v -> openGallery());
+    private void setupGestureDetectors() {
+        viewFinderGestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+            @Override
+            public boolean onDoubleTap(MotionEvent e) {
+                swapCamera();
+                return true;
+            }
+
+            @Override
+            public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+                if (e1 != null && e2 != null && e1.getY() - e2.getY() > 150 && Math.abs(velocityY) > 150) {
+                    openMemoriesDrawer();
+                    return true;
+                }
+                return false;
+            }
+        });
+
+        if (viewFinder != null) {
+            viewFinder.setOnTouchListener((v, e) -> {
+                viewFinderGestureDetector.onTouchEvent(e);
+                return true;
+            });
         }
+    }
+
+    private void setupShutterTouchGestures(ImageButton shutter) {
+        if (shutter == null) return;
+
+        shutter.setOnTouchListener(new View.OnTouchListener() {
+            private float initialY = 0;
+            private boolean isRecordingMode = false;
+            private final Handler longPressHandler = new Handler(Looper.getMainLooper());
+            private final Runnable startRecordingRunnable = () -> {
+                isRecordingMode = true;
+                startVideoRecordingForSnap();
+            };
+
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        initialY = event.getRawY();
+                        isRecordingMode = false;
+                        longPressHandler.postDelayed(startRecordingRunnable, 400); // 400ms threshold for video
+                        shutter.animate().scaleX(1.2f).scaleY(1.2f).setDuration(150).start();
+                        return true;
+
+                    case MotionEvent.ACTION_MOVE:
+                        if (isRecordingMode) {
+                            float diffY = initialY - event.getRawY();
+                            if (diffY > 50 && camera != null) {
+                                float zoomPercent = Math.min(1.0f, (diffY - 50) / 400f);
+                                camera.getCameraControl().setLinearZoom(zoomPercent);
+                            }
+                        }
+                        return true;
+
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        longPressHandler.removeCallbacks(startRecordingRunnable);
+                        shutter.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start();
+                        if (isRecordingMode) {
+                            stopVideoRecordingForSnap();
+                        } else {
+                            handleCapture();
+                        }
+                        return true;
+                }
+                return false;
+            }
+        });
     }
 
     private void setupFilterCarousel() {
@@ -208,12 +320,12 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                 String filterName = filtersList[position];
                 TextView tv = (TextView) holder.itemView;
                 tv.setText(filterName);
-                tv.setPadding(32, 16, 32, 16);
+                tv.setPadding(28, 12, 28, 12);
                 tv.setGravity(android.view.Gravity.CENTER);
-                tv.setTextSize(12);
+                tv.setTextSize(11);
 
                 android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable();
-                gd.setCornerRadius(30);
+                gd.setCornerRadius(24);
 
                 if (filterName.equals(currentFilter)) {
                     tv.setTextColor(android.graphics.Color.parseColor("#00F2FF"));
@@ -228,13 +340,12 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
 
                 ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) tv.getLayoutParams();
                 if (params != null) {
-                    params.setMargins(12, 0, 12, 0);
+                    params.setMargins(8, 0, 8, 0);
                     tv.setLayoutParams(params);
                 }
 
                 tv.setOnClickListener(v -> {
                     currentFilter = filterName;
-                    Toast.makeText(MainActivity.this, "Filter: " + currentFilter, Toast.LENGTH_SHORT).show();
                     applyFilterEffects(filterName);
                     notifyDataSetChanged();
                 });
@@ -243,6 +354,23 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             @Override
             public int getItemCount() { return filtersList.length; }
         });
+    }
+
+    private void setupLensesCarousel() {
+        androidx.recyclerview.widget.RecyclerView lensesRecycler = findViewById(R.id.lenses_carousel);
+        if (lensesRecycler == null) return;
+
+        lensesRecycler.setLayoutManager(new androidx.recyclerview.widget.LinearLayoutManager(this,
+                androidx.recyclerview.widget.LinearLayoutManager.HORIZONTAL, false));
+
+        LensesAdapter adapter = new LensesAdapter(lensesList, activeLensName, lensName -> {
+            activeLensName = lensName;
+            FaceOverlayView overlay = findViewById(R.id.face_overlay);
+            if (overlay != null) {
+                overlay.setActiveLens(activeLensName);
+            }
+        });
+        lensesRecycler.setAdapter(adapter);
     }
 
     private String[] generateFiltersList() {
@@ -341,102 +469,381 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         return matrix;
     }
 
-    private void applyFilterToSavedImage(Uri uri, String filterName) {
-        if (filterName.equals("Original") || uri == null) {
+    private void setupPostCaptureControls() {
+        View textBtn = findViewById(R.id.post_btn_text);
+        View doodleBtn = findViewById(R.id.post_btn_doodle);
+        View muteBtn = findViewById(R.id.post_btn_mute);
+        View closeBtn = findViewById(R.id.post_btn_close);
+        View saveBtn = findViewById(R.id.post_btn_save);
+        View shareBtn = findViewById(R.id.post_btn_share);
+        DoodleView doodleView = findViewById(R.id.doodle_canvas);
+        TextView textOverlay = findViewById(R.id.text_overlay);
+
+        if (textBtn != null) {
+            textBtn.setOnClickListener(v -> {
+                EditText input = new EditText(this);
+                if (textOverlay != null && textOverlay.getVisibility() == View.VISIBLE) {
+                    input.setText(textOverlay.getText());
+                }
+                new androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle("Add Snap Text")
+                        .setView(input)
+                        .setPositiveButton("Done", (dialog, which) -> {
+                            String txt = input.getText().toString();
+                            if (!txt.trim().isEmpty()) {
+                                textOverlay.setText(txt);
+                                textOverlay.setVisibility(View.VISIBLE);
+                            } else {
+                                textOverlay.setVisibility(View.GONE);
+                            }
+                        })
+                        .setNegativeButton("Cancel", null)
+                        .show();
+            });
+        }
+
+        // Make text draggable
+        if (textOverlay != null) {
+            textOverlay.setOnTouchListener(new View.OnTouchListener() {
+                float dX, dY;
+                @Override
+                public boolean onTouch(View view, MotionEvent event) {
+                    switch (event.getAction()) {
+                        case MotionEvent.ACTION_DOWN:
+                            dX = view.getX() - event.getRawX();
+                            dY = view.getY() - event.getRawY();
+                            break;
+                        case MotionEvent.ACTION_MOVE:
+                            view.setX(event.getRawX() + dX);
+                            view.setY(event.getRawY() + dY);
+                            break;
+                        default:
+                            return false;
+                    }
+                    return true;
+                }
+            });
+        }
+
+        if (doodleBtn != null) {
+            doodleBtn.setOnClickListener(v -> {
+                if (doodleView != null) {
+                    if (doodleView.getVisibility() == View.VISIBLE) {
+                        doodleView.setVisibility(View.GONE);
+                        doodleBtn.setBackgroundTintList(null);
+                    } else {
+                        doodleView.setVisibility(View.VISIBLE);
+                        doodleBtn.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+                                android.graphics.Color.parseColor("#00F2FF")));
+                    }
+                }
+            });
+        }
+
+        if (closeBtn != null) {
+            closeBtn.setOnClickListener(v -> {
+                findViewById(R.id.post_capture_layer).setVisibility(View.GONE);
+                android.widget.VideoView vv = findViewById(R.id.post_capture_video);
+                if (vv != null && vv.isPlaying()) vv.stopPlayback();
+                startCamera();
+            });
+        }
+
+        if (saveBtn != null) {
+            saveBtn.setOnClickListener(v -> saveFinalizedSnap());
+        }
+
+        if (shareBtn != null) {
+            shareBtn.setOnClickListener(v -> {
+                if (capturedUri != null) {
+                    shareMedia(capturedUri, capturedIsPhoto);
+                }
+            });
+        }
+
+        // Swipe horizontal on post capture to change filters
+        View postCaptureLayer = findViewById(R.id.post_capture_layer);
+        if (postCaptureLayer != null) {
+            postCaptureLayer.setOnTouchListener(new View.OnTouchListener() {
+                private float initialX = 0;
+                @Override
+                public boolean onTouch(View v, MotionEvent event) {
+                    switch (event.getAction()) {
+                        case MotionEvent.ACTION_DOWN:
+                            initialX = event.getX();
+                            return true;
+                        case MotionEvent.ACTION_UP:
+                            float diffX = event.getX() - initialX;
+                            if (Math.abs(diffX) > 150) {
+                                cyclePostCaptureFilter(diffX > 0);
+                            }
+                            return true;
+                    }
+                    return false;
+                }
+            });
+        }
+    }
+
+    private void cyclePostCaptureFilter(boolean forward) {
+        int curIndex = 0;
+        for (int i = 0; i < filtersList.length; i++) {
+            if (filtersList[i].equals(postCaptureFilter)) {
+                curIndex = i;
+                break;
+            }
+        }
+        if (forward) {
+            curIndex = (curIndex + 1) % filtersList.length;
+        } else {
+            curIndex = (curIndex - 1 + filtersList.length) % filtersList.length;
+        }
+        postCaptureFilter = filtersList[curIndex];
+        
+        ImageView previewImage = findViewById(R.id.post_capture_image);
+        if (previewImage != null) {
+            android.graphics.ColorMatrix matrix = getColorMatrixForFilter(postCaptureFilter);
+            android.graphics.Paint paint = new android.graphics.Paint();
+            paint.setColorFilter(new android.graphics.ColorMatrixColorFilter(matrix));
+            previewImage.setLayerType(View.LAYER_TYPE_HARDWARE, paint);
+        }
+        
+        TextView label = findViewById(R.id.post_filter_label);
+        if (label != null) {
+            label.setVisibility(View.VISIBLE);
+            label.setText(postCaptureFilter);
+            label.onCancelPendingInputEvents();
+            label.postDelayed(() -> label.setVisibility(View.GONE), 1000);
+        }
+    }
+
+    private void saveFinalizedSnap() {
+        if (capturedUri == null) return;
+        if (!capturedIsPhoto) {
+            // It's a video, we just save it directly (already written to MediaStore)
+            Toast.makeText(this, "Video Saved to Memories!", Toast.LENGTH_SHORT).show();
+            findViewById(R.id.post_capture_layer).setVisibility(View.GONE);
             loadLastSavedThumbnail();
+            startCamera();
             return;
         }
+
+        Toast.makeText(this, "Saving snap...", Toast.LENGTH_SHORT).show();
+
         cameraExecutor.execute(() -> {
             try {
                 android.graphics.Bitmap srcBitmap;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     srcBitmap = android.graphics.ImageDecoder.decodeBitmap(
-                            android.graphics.ImageDecoder.createSource(getContentResolver(), uri),
+                            android.graphics.ImageDecoder.createSource(getContentResolver(), capturedUri),
                             (decoder, info, source) -> decoder.setMutableRequired(true)
                     );
                 } else {
-                    srcBitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), uri);
+                    srcBitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), capturedUri);
                     srcBitmap = srcBitmap.copy(android.graphics.Bitmap.Config.ARGB_8888, true);
                 }
 
-                android.graphics.Bitmap filteredBitmap = android.graphics.Bitmap.createBitmap(
+                android.graphics.Bitmap finalBitmap = android.graphics.Bitmap.createBitmap(
                         srcBitmap.getWidth(), srcBitmap.getHeight(), srcBitmap.getConfig());
-                
-                android.graphics.Canvas canvas = new android.graphics.Canvas(filteredBitmap);
+                android.graphics.Canvas canvas = new android.graphics.Canvas(finalBitmap);
+
+                // 1. Draw base with color filter
                 android.graphics.Paint paint = new android.graphics.Paint();
-                android.graphics.ColorMatrix colorMatrix = getColorMatrixForFilter(filterName);
-                paint.setColorFilter(new android.graphics.ColorMatrixColorFilter(colorMatrix));
+                android.graphics.ColorMatrix matrix = getColorMatrixForFilter(postCaptureFilter);
+                paint.setColorFilter(new android.graphics.ColorMatrixColorFilter(matrix));
                 canvas.drawBitmap(srcBitmap, 0, 0, paint);
-                
-                try (java.io.OutputStream out = getContentResolver().openOutputStream(uri)) {
-                    filteredBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 95, out);
+
+                // 2. Draw doodle overlay
+                DoodleView doodleView = findViewById(R.id.doodle_canvas);
+                if (doodleView != null && doodleView.getVisibility() == View.VISIBLE) {
+                    android.graphics.Bitmap doodleBmp = doodleView.exportBitmap();
+                    android.graphics.Bitmap scaledDoodle = android.graphics.Bitmap.createScaledBitmap(
+                            doodleBmp, srcBitmap.getWidth(), srcBitmap.getHeight(), true);
+                    canvas.drawBitmap(scaledDoodle, 0, 0, null);
                 }
-                
+
+                // 3. Draw text overlay
+                TextView tv = findViewById(R.id.text_overlay);
+                if (tv != null && tv.getVisibility() == View.VISIBLE) {
+                    android.graphics.Paint textPaint = new android.graphics.Paint();
+                    textPaint.setColor(tv.getCurrentTextColor());
+                    // Scale text size proportional to resolution
+                    textPaint.setTextSize(tv.getTextSize() * (srcBitmap.getWidth() / (float) viewFinder.getWidth()));
+                    textPaint.setAntiAlias(true);
+                    textPaint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+                    
+                    float relX = tv.getX() / (float) viewFinder.getWidth() * srcBitmap.getWidth();
+                    float relY = (tv.getY() + tv.getBaseline()) / (float) viewFinder.getHeight() * srcBitmap.getHeight();
+                    canvas.drawText(tv.getText().toString(), relX, relY, textPaint);
+                }
+
+                // Write back
+                try (java.io.OutputStream out = getContentResolver().openOutputStream(capturedUri)) {
+                    finalBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 95, out);
+                }
+
                 srcBitmap.recycle();
-                filteredBitmap.recycle();
-                
-                runOnUiThread(() -> loadLastSavedThumbnail());
+                finalBitmap.recycle();
+
+                runOnUiThread(() -> {
+                    Toast.makeText(MainActivity.this, "Saved to Memories!", Toast.LENGTH_SHORT).show();
+                    findViewById(R.id.post_capture_layer).setVisibility(View.GONE);
+                    
+                    // Reset doodle & text
+                    if (doodleView != null) {
+                        doodleView.clearCanvas();
+                        doodleView.setVisibility(View.GONE);
+                    }
+                    if (tv != null) {
+                        tv.setText("");
+                        tv.setVisibility(View.GONE);
+                    }
+                    
+                    loadLastSavedThumbnail();
+                    startCamera();
+                });
+
             } catch (Exception e) {
-                Log.e(TAG, "Error applying filter to saved image", e);
-                runOnUiThread(() -> loadLastSavedThumbnail());
+                Log.e(TAG, "Error finalizing snap", e);
             }
         });
     }
 
-    private void setupModeSelector() {
-        TextView modePhoto = findViewById(R.id.mode_photo);
-        TextView modeVideo = findViewById(R.id.mode_video);
-        TextView modePortrait = findViewById(R.id.mode_portrait);
-        TextView modeNight = findViewById(R.id.mode_night);
-        TextView modeHdr = findViewById(R.id.mode_hdr);
+    private void launchPostCapturePreview(Uri uri, boolean isPhoto) {
+        capturedUri = uri;
+        capturedIsPhoto = isPhoto;
+        postCaptureFilter = "Original";
 
-        if (modePhoto != null) modePhoto.setOnClickListener(v -> setCaptureMode(CaptureMode.PHOTO));
-        if (modeVideo != null) modeVideo.setOnClickListener(v -> setCaptureMode(CaptureMode.VIDEO));
-        if (modePortrait != null) modePortrait.setOnClickListener(v -> setCaptureMode(CaptureMode.PORTRAIT));
-        if (modeNight != null) modeNight.setOnClickListener(v -> setCaptureMode(CaptureMode.NIGHT));
-        if (modeHdr != null) modeHdr.setOnClickListener(v -> setCaptureMode(CaptureMode.HDR));
+        runOnUiThread(() -> {
+            findViewById(R.id.post_capture_layer).setVisibility(View.VISIBLE);
+            
+            ImageView previewImg = findViewById(R.id.post_capture_image);
+            android.widget.VideoView previewVid = findViewById(R.id.post_capture_video);
+            View muteBtn = findViewById(R.id.post_btn_mute);
+
+            // Apply default identity matrix
+            if (previewImg != null) {
+                previewImg.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+            }
+
+            if (isPhoto) {
+                if (previewImg != null) {
+                    previewImg.setVisibility(View.VISIBLE);
+                    previewImg.setImageURI(uri);
+                }
+                if (previewVid != null) previewVid.setVisibility(View.GONE);
+                if (muteBtn != null) muteBtn.setVisibility(View.GONE);
+            } else {
+                if (previewImg != null) previewImg.setVisibility(View.GONE);
+                if (previewVid != null) {
+                    previewVid.setVisibility(View.VISIBLE);
+                    previewVid.setVideoURI(uri);
+                    previewVid.setOnPreparedListener(mp -> {
+                        mp.setLooping(true);
+                        previewVid.start();
+                    });
+                }
+                if (muteBtn != null) {
+                    muteBtn.setVisibility(View.VISIBLE);
+                    muteBtn.setOnClickListener(v -> {
+                        // Simple mute/unmute simulation
+                        Toast.makeText(MainActivity.this, "Audio toggled", Toast.LENGTH_SHORT).show();
+                    });
+                }
+            }
+        });
     }
 
-    private void setCaptureMode(CaptureMode mode) {
-        if (activeMode == mode) return;
-        activeMode = mode;
-
-        highlightModeText(mode);
-
-        ImageButton shutter = findViewById(R.id.image_capture_button);
-        if (shutter != null) {
-            if (mode == CaptureMode.VIDEO) {
-                shutter.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#FF2D55")));
-            } else {
-                shutter.setBackgroundTintList(null);
-            }
+    private void setupMemoriesControls() {
+        androidx.recyclerview.widget.RecyclerView grid = findViewById(R.id.memories_grid);
+        if (grid != null) {
+            grid.setLayoutManager(new androidx.recyclerview.widget.GridLayoutManager(this, 3));
         }
 
-        startCamera();
+        View backBtn = findViewById(R.id.memories_btn_back);
+        if (backBtn != null) {
+            backBtn.setOnClickListener(v -> {
+                findViewById(R.id.memories_drawer).setVisibility(View.GONE);
+                loadLastSavedThumbnail();
+            });
+        }
     }
 
-    private void highlightModeText(CaptureMode mode) {
-        TextView[] views = {
-            findViewById(R.id.mode_photo),
-            findViewById(R.id.mode_video),
-            findViewById(R.id.mode_portrait),
-            findViewById(R.id.mode_night),
-            findViewById(R.id.mode_hdr)
-        };
-        CaptureMode[] modes = {
-            CaptureMode.PHOTO, CaptureMode.VIDEO, CaptureMode.PORTRAIT, CaptureMode.NIGHT, CaptureMode.HDR
-        };
+    private void openMemoriesDrawer() {
+        cameraExecutor.execute(() -> {
+            galleryItems = getCapturedMedia();
+            runOnUiThread(() -> {
+                View drawer = findViewById(R.id.memories_drawer);
+                if (drawer != null) {
+                    drawer.setVisibility(View.VISIBLE);
+                }
+                
+                androidx.recyclerview.widget.RecyclerView grid = findViewById(R.id.memories_grid);
+                if (grid != null) {
+                    memoriesAdapter = new MemoriesGridAdapter(this, galleryItems, position -> {
+                        // Open in pager viewer
+                        openMemoriesFullscreenViewer(position);
+                    });
+                    grid.setAdapter(memoriesAdapter);
+                }
+            });
+        });
+    }
 
-        for (int i = 0; i < views.length; i++) {
-            TextView v = views[i];
-            if (v == null) continue;
-            if (modes[i] == mode) {
-                v.setTextColor(android.graphics.Color.WHITE);
-                v.setTypeface(null, android.graphics.Typeface.BOLD);
-            } else {
-                v.setTextColor(android.graphics.Color.parseColor("#80FFFFFF"));
-                v.setTypeface(null, android.graphics.Typeface.NORMAL);
-            }
+    private void openMemoriesFullscreenViewer(int startPosition) {
+        View viewer = findViewById(R.id.memories_viewer);
+        if (viewer != null) viewer.setVisibility(View.VISIBLE);
+
+        androidx.viewpager2.widget.ViewPager2 viewPager = findViewById(R.id.gallery_viewpager);
+        if (viewPager != null) {
+            viewerAdapter = new GalleryAdapter(this, galleryItems);
+            viewPager.setAdapter(viewerAdapter);
+            viewPager.setCurrentItem(startPosition, false);
+        }
+
+        View backBtn = findViewById(R.id.viewer_btn_back);
+        if (backBtn != null) {
+            backBtn.setOnClickListener(v -> {
+                if (viewer != null) viewer.setVisibility(View.GONE);
+                openMemoriesDrawer(); // refresh drawer grid
+            });
+        }
+
+        View shareBtn = findViewById(R.id.gallery_btn_share);
+        if (shareBtn != null) {
+            shareBtn.setOnClickListener(v -> {
+                if (viewPager != null) {
+                    int pos = viewPager.getCurrentItem();
+                    if (pos >= 0 && pos < galleryItems.size()) {
+                        MediaItem item = galleryItems.get(pos);
+                        shareMedia(item.uri, item.isImage);
+                    }
+                }
+            });
+        }
+
+        View deleteBtn = findViewById(R.id.gallery_btn_delete);
+        if (deleteBtn != null) {
+            deleteBtn.setOnClickListener(v -> {
+                if (viewPager != null) {
+                    int pos = viewPager.getCurrentItem();
+                    if (pos >= 0 && pos < galleryItems.size()) {
+                        MediaItem item = galleryItems.get(pos);
+                        new androidx.appcompat.app.AlertDialog.Builder(this)
+                                .setTitle("Delete Snap")
+                                .setMessage("Delete this snap permanently?")
+                                .setPositiveButton("Delete", (dialog, which) -> {
+                                    deleteMedia(item, pos);
+                                    if (galleryItems.isEmpty()) {
+                                        if (viewer != null) viewer.setVisibility(View.GONE);
+                                        findViewById(R.id.memories_drawer).setVisibility(View.GONE);
+                                    }
+                                })
+                                .setNegativeButton("Cancel", null)
+                                .show();
+                    }
+                }
+            });
         }
     }
 
@@ -472,15 +879,6 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         } catch (Exception e) {
             Log.e(TAG, "Error checking extensions availability", e);
         }
-
-        runOnUiThread(() -> {
-            View port = findViewById(R.id.mode_portrait);
-            View night = findViewById(R.id.mode_night);
-            View hdr = findViewById(R.id.mode_hdr);
-            if (port != null) port.setVisibility(isPortraitSupported ? View.VISIBLE : View.GONE);
-            if (night != null) night.setVisibility(isNightSupported ? View.VISIBLE : View.GONE);
-            if (hdr != null) hdr.setVisibility(isHdrSupported ? View.VISIBLE : View.GONE);
-        });
     }
 
     @Override
@@ -553,100 +951,12 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
     }
 
     private void handleCapture() {
-        if (activeMode == CaptureMode.VIDEO) {
-            handleVideoRecording();
+        if (timerSeconds > 0) {
+            Toast.makeText(this, "Capturing in " + timerSeconds + "s...", Toast.LENGTH_SHORT).show();
+            findViewById(R.id.image_capture_button).postDelayed(this::takePhoto, timerSeconds * 1000L);
         } else {
-            if (timerSeconds > 0) {
-                Toast.makeText(this, "Capturing in " + timerSeconds + "s...", Toast.LENGTH_SHORT).show();
-                findViewById(R.id.image_capture_button).postDelayed(this::takePhoto, timerSeconds * 1000L);
-            } else {
-                takePhoto();
-            }
+            takePhoto();
         }
-    }
-
-    private void handleVideoRecording() {
-        if (videoCapture == null) return;
-        
-        ImageButton captureButton = findViewById(R.id.image_capture_button);
-        if (activeRecording != null) {
-            activeRecording.stop();
-            activeRecording = null;
-            return;
-        }
-
-        long timestamp = System.currentTimeMillis();
-        String name = new SimpleDateFormat(FILENAME_FORMAT, Locale.US).format(timestamp);
-        ContentValues cv = new ContentValues();
-        cv.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
-        cv.put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4");
-        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
-            cv.put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/PrismaticAura");
-        }
-
-        androidx.camera.video.MediaStoreOutputOptions options = new androidx.camera.video.MediaStoreOutputOptions.Builder(
-                getContentResolver(),
-                MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
-                .setContentValues(cv)
-                .build();
-
-        boolean hasAudioPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
-
-        try {
-            androidx.camera.video.PendingRecording recordingBuilder = videoCapture.getOutput().prepareRecording(this, options);
-            if (hasAudioPermission) {
-                recordingBuilder = recordingBuilder.withAudioEnabled();
-            }
-            
-            activeRecording = recordingBuilder.start(ContextCompat.getMainExecutor(this), new androidx.core.util.Consumer<androidx.camera.video.VideoRecordEvent>() {
-                @Override
-                public void accept(androidx.camera.video.VideoRecordEvent recordEvent) {
-                    if (recordEvent instanceof androidx.camera.video.VideoRecordEvent.Start) {
-                        runOnUiThread(() -> {
-                            if (captureButton != null) {
-                                captureButton.setImageResource(android.R.drawable.ic_media_pause);
-                            }
-                            View timerCont = findViewById(R.id.recording_timer_container);
-                            if (timerCont != null) timerCont.setVisibility(View.VISIBLE);
-                            startRecordingTimer();
-                        });
-                    } else if (recordEvent instanceof androidx.camera.video.VideoRecordEvent.Finalize) {
-                        androidx.camera.video.VideoRecordEvent.Finalize finalizeEvent = (androidx.camera.video.VideoRecordEvent.Finalize) recordEvent;
-                        runOnUiThread(() -> {
-                            if (captureButton != null) {
-                                captureButton.setImageResource(0);
-                            }
-                            View timerCont = findViewById(R.id.recording_timer_container);
-                            if (timerCont != null) timerCont.setVisibility(View.GONE);
-                            stopRecordingTimer();
-                        });
-                        
-                        if (!finalizeEvent.hasError()) {
-                            runOnUiThread(() -> {
-                                Toast.makeText(MainActivity.this, "Video Recorded!", Toast.LENGTH_SHORT).show();
-                                loadLastSavedThumbnail();
-                            });
-                        } else {
-                            Log.e(TAG, "Video recording error: " + finalizeEvent.getError());
-                        }
-                        activeRecording = null;
-                    }
-                }
-            });
-        } catch (SecurityException e) {
-            Log.e(TAG, "Recording security exception", e);
-        }
-    }
-
-    private void startRecordingTimer() {
-        recordingStartTime = System.currentTimeMillis();
-        timerHandler.post(timerRunnable);
-    }
-
-    private void stopRecordingTimer() {
-        timerHandler.removeCallbacks(timerRunnable);
-        View dot = findViewById(R.id.recording_dot);
-        if (dot != null) dot.setVisibility(View.VISIBLE);
     }
 
     private void swapCamera() {
@@ -711,9 +1021,11 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             }
         });
 
+        // We combine the viewFinderGestureDetector and scaleDetector in onTouch
         if (viewFinder != null) {
             viewFinder.setOnTouchListener((v, e) -> {
                 scaleDetector.onTouchEvent(e);
+                viewFinderGestureDetector.onTouchEvent(e);
                 if (e.getAction() == android.view.MotionEvent.ACTION_UP) {
                     if (!scaleDetector.isInProgress()) {
                         focusAndShowControls(e.getX(), e.getY());
@@ -816,17 +1128,59 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                     }
                 }
 
+                // ImageAnalysis use case for live ML Kit face stickers tracking
+                ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .build();
+
+                boolean isFront = (lensFacing == CameraSelector.LENS_FACING_FRONT);
+                imageAnalysis.setAnalyzer(cameraExecutor, imageProxy -> {
+                    @androidx.annotation.OptIn(markerClass = androidx.camera.core.ExperimentalGetImage.class)
+                    android.media.Image mediaImage = imageProxy.getImage();
+                    if (mediaImage != null) {
+                        com.google.mlkit.vision.common.InputImage image =
+                                com.google.mlkit.vision.common.InputImage.fromMediaImage(mediaImage, imageProxy.getImageInfo().getRotationDegrees());
+                        faceDetector.process(image)
+                                .addOnSuccessListener(faces -> {
+                                    FaceOverlayView overlay = findViewById(R.id.face_overlay);
+                                    if (overlay != null) {
+                                        overlay.setFaces(faces, imageProxy.getWidth(), imageProxy.getHeight(), isFront);
+                                        
+                                        // Auto-smile capture triggers photo capture automatically!
+                                        if (activeMode == CaptureMode.PHOTO && !faces.isEmpty() && isSmileShutterEnabled) {
+                                            for (com.google.mlkit.vision.face.Face face : faces) {
+                                                if (face.getSmilingProbability() != null && face.getSmilingProbability() > 0.85f) {
+                                                    // Throttle smile shutter to avoid loops
+                                                    isSmileShutterEnabled = false;
+                                                    runOnUiThread(() -> {
+                                                        Toast.makeText(MainActivity.this, "Smiling! Taking Snap...", Toast.LENGTH_SHORT).show();
+                                                        takePhoto();
+                                                        new Handler(Looper.getMainLooper()).postDelayed(() -> isSmileShutterEnabled = true, 5000);
+                                                    });
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                })
+                                .addOnFailureListener(e -> Log.e(TAG, "Face analysis failed", e))
+                                .addOnCompleteListener(task -> imageProxy.close());
+                    } else {
+                        imageProxy.close();
+                    }
+                });
+
                 if (activeMode == CaptureMode.VIDEO) {
                     androidx.camera.video.Recorder recorder = new androidx.camera.video.Recorder.Builder()
                             .setQualitySelector(androidx.camera.video.QualitySelector.from(androidx.camera.video.Quality.HIGHEST))
                             .build();
                     videoCapture = androidx.camera.video.VideoCapture.withOutput(recorder);
-                    camera = provider.bindToLifecycle(this, selector, preview, videoCapture);
+                    camera = provider.bindToLifecycle(this, selector, preview, videoCapture, imageAnalysis);
                 } else {
                     imageCapture = new ImageCapture.Builder()
                             .setFlashMode(flashMode)
                             .build();
-                    camera = provider.bindToLifecycle(this, selector, preview, imageCapture);
+                    camera = provider.bindToLifecycle(this, selector, preview, imageCapture, imageAnalysis);
                 }
 
                 runOnUiThread(() -> applyFilterEffects(currentFilter));
@@ -837,6 +1191,23 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
 
     private void takePhoto() {
         if (imageCapture == null) return;
+
+        // Selfie Soft Flash simulation
+        if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
+            View flashOverlay = findViewById(R.id.selfie_flash_overlay);
+            if (flashOverlay != null) {
+                flashOverlay.setVisibility(View.VISIBLE);
+                flashOverlay.animate().alpha(1.0f).setDuration(100).withEndAction(() -> {
+                    capturePhotoFlow();
+                    flashOverlay.animate().alpha(0.0f).setDuration(300).withEndAction(() -> flashOverlay.setVisibility(View.GONE));
+                });
+                return;
+            }
+        }
+        capturePhotoFlow();
+    }
+
+    private void capturePhotoFlow() {
         String name = new SimpleDateFormat(FILENAME_FORMAT, Locale.US).format(System.currentTimeMillis());
         ContentValues cv = new ContentValues();
         cv.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
@@ -852,12 +1223,102 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                 new ImageCapture.OnImageSavedCallback() {
             @Override
             public void onImageSaved(@NonNull ImageCapture.OutputFileResults o) {
-                Toast.makeText(getBaseContext(), "Aura Captured!", Toast.LENGTH_SHORT).show();
                 Uri uri = o.getSavedUri();
-                applyFilterToSavedImage(uri, currentFilter);
+                launchPostCapturePreview(uri, true);
             }
             @Override public void onError(@NonNull ImageCaptureException e) { Log.e(TAG, "Fail", e); }
         });
+    }
+
+    private void startVideoRecordingForSnap() {
+        if (videoCapture == null) {
+            activeMode = CaptureMode.VIDEO;
+            startCamera();
+            new Handler(Looper.getMainLooper()).postDelayed(this::startVideoRecordingFlow, 600);
+        } else {
+            startVideoRecordingFlow();
+        }
+    }
+
+    private void startVideoRecordingFlow() {
+        long timestamp = System.currentTimeMillis();
+        String name = new SimpleDateFormat(FILENAME_FORMAT, Locale.US).format(timestamp);
+        ContentValues cv = new ContentValues();
+        cv.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
+        cv.put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4");
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
+            cv.put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/PrismaticAura");
+        }
+
+        androidx.camera.video.MediaStoreOutputOptions options = new androidx.camera.video.MediaStoreOutputOptions.Builder(
+                getContentResolver(),
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
+                .setContentValues(cv)
+                .build();
+
+        boolean hasAudioPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+
+        try {
+            androidx.camera.video.PendingRecording recordingBuilder = videoCapture.getOutput().prepareRecording(this, options);
+            if (hasAudioPermission) {
+                recordingBuilder = recordingBuilder.withAudioEnabled();
+            }
+            
+            activeRecording = recordingBuilder.start(ContextCompat.getMainExecutor(this), new androidx.core.util.Consumer<androidx.camera.video.VideoRecordEvent>() {
+                @Override
+                public void accept(androidx.camera.video.VideoRecordEvent recordEvent) {
+                    if (recordEvent instanceof androidx.camera.video.VideoRecordEvent.Start) {
+                        runOnUiThread(() -> {
+                            ProgressBar pg = findViewById(R.id.record_progress);
+                            if (pg != null) {
+                                pg.setVisibility(View.VISIBLE);
+                                pg.setProgress(0);
+                            }
+                            View timerCont = findViewById(R.id.recording_timer_container);
+                            if (timerCont != null) timerCont.setVisibility(View.VISIBLE);
+                            startRecordingTimer();
+                        });
+                    } else if (recordEvent instanceof androidx.camera.video.VideoRecordEvent.Finalize) {
+                        androidx.camera.video.VideoRecordEvent.Finalize finalizeEvent = (androidx.camera.video.VideoRecordEvent.Finalize) recordEvent;
+                        runOnUiThread(() -> {
+                            ProgressBar pg = findViewById(R.id.record_progress);
+                            if (pg != null) pg.setVisibility(View.GONE);
+                            View timerCont = findViewById(R.id.recording_timer_container);
+                            if (timerCont != null) timerCont.setVisibility(View.GONE);
+                            stopRecordingTimer();
+                        });
+                        
+                        if (!finalizeEvent.hasError()) {
+                            Uri savedUri = finalizeEvent.getOutputResults().getOutputUri();
+                            launchPostCapturePreview(savedUri, false);
+                        } else {
+                            Log.e(TAG, "Video recording error: " + finalizeEvent.getError());
+                        }
+                        activeRecording = null;
+                    }
+                }
+            });
+        } catch (SecurityException e) {
+            Log.e(TAG, "Recording security exception", e);
+        }
+    }
+
+    private void stopVideoRecordingForSnap() {
+        if (activeRecording != null) {
+            activeRecording.stop();
+            activeRecording = null;
+        }
+    }
+
+    private void startRecordingTimer() {
+        recordingStartTime = System.currentTimeMillis();
+        timerHandler.post(timerRunnable);
+    }
+
+    private void stopRecordingTimer() {
+        timerHandler.removeCallbacks(timerRunnable);
+        View dot = findViewById(R.id.recording_dot);
+        if (dot != null) dot.setVisibility(View.VISIBLE);
     }
 
     private boolean allPermissionsGranted() {
@@ -938,96 +1399,28 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         return list;
     }
 
-    private void openGallery() {
-        cameraExecutor.execute(() -> {
-            galleryItems = getCapturedMedia();
-            runOnUiThread(() -> {
-                if (galleryItems.isEmpty()) {
-                    Toast.makeText(this, "No media captured yet", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                
-                View overlay = findViewById(R.id.gallery_overlay);
-                if (overlay != null) {
-                    overlay.setVisibility(View.VISIBLE);
-                }
-                
-                androidx.viewpager2.widget.ViewPager2 viewPager = findViewById(R.id.gallery_viewpager);
-                if (viewPager != null) {
-                    galleryAdapter = new GalleryAdapter(this, galleryItems);
-                    viewPager.setAdapter(galleryAdapter);
-                }
-                
-                View backBtn = findViewById(R.id.gallery_btn_back);
-                if (backBtn != null) {
-                    backBtn.setOnClickListener(v -> {
-                        if (overlay != null) overlay.setVisibility(View.GONE);
-                        loadLastSavedThumbnail();
-                    });
-                }
-                
-                View shareBtn = findViewById(R.id.gallery_btn_share);
-                if (shareBtn != null) {
-                    shareBtn.setOnClickListener(v -> {
-                        if (viewPager != null) {
-                            int currentPos = viewPager.getCurrentItem();
-                            if (currentPos >= 0 && currentPos < galleryItems.size()) {
-                                MediaItem item = galleryItems.get(currentPos);
-                                shareMedia(item.uri, item.isImage);
-                            }
-                        }
-                    });
-                }
-                
-                View deleteBtn = findViewById(R.id.gallery_btn_delete);
-                if (deleteBtn != null) {
-                    deleteBtn.setOnClickListener(v -> {
-                        if (viewPager != null) {
-                            int currentPos = viewPager.getCurrentItem();
-                            if (currentPos >= 0 && currentPos < galleryItems.size()) {
-                                MediaItem item = galleryItems.get(currentPos);
-                                new androidx.appcompat.app.AlertDialog.Builder(this)
-                                        .setTitle("Delete Media")
-                                        .setMessage("Are you sure you want to delete this?")
-                                        .setPositiveButton("Delete", (dialog, which) -> deleteMedia(item, currentPos))
-                                        .setNegativeButton("Cancel", null)
-                                        .show();
-                            }
-                        }
-                    });
-                }
-            });
-        });
-    }
-
     private void shareMedia(Uri uri, boolean isImage) {
         android.content.Intent shareIntent = new android.content.Intent(android.content.Intent.ACTION_SEND);
         shareIntent.setType(isImage ? "image/jpeg" : "video/mp4");
         shareIntent.putExtra(android.content.Intent.EXTRA_STREAM, uri);
         shareIntent.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        startActivity(android.content.Intent.createChooser(shareIntent, "Share Media"));
+        startActivity(android.content.Intent.createChooser(shareIntent, "Share Snap"));
     }
 
     private void deleteMedia(MediaItem item, int position) {
         try {
             getContentResolver().delete(item.uri, null, null);
             galleryItems.remove(position);
-            if (galleryAdapter != null) {
-                galleryAdapter.notifyItemRemoved(position);
+            if (viewerAdapter != null) {
+                viewerAdapter.notifyItemRemoved(position);
             }
-            
-            if (galleryItems.isEmpty()) {
-                View overlay = findViewById(R.id.gallery_overlay);
-                if (overlay != null) overlay.setVisibility(View.GONE);
-                ImageView lastImage = findViewById(R.id.last_image_preview);
-                if (lastImage != null) lastImage.setImageResource(R.drawable.ic_gallery);
-            } else {
-                loadLastSavedThumbnail();
+            if (memoriesAdapter != null) {
+                memoriesAdapter.notifyItemRemoved(position);
             }
+            loadLastSavedThumbnail();
             Toast.makeText(this, "Deleted", Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
             Log.e(TAG, "Delete failed", e);
-            Toast.makeText(this, "Could not delete file", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -1049,6 +1442,7 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         }
     }
 
+    // Pager adapter for Memories Fullscreen Viewer
     private static class GalleryAdapter extends androidx.recyclerview.widget.RecyclerView.Adapter<GalleryAdapter.ViewHolder> {
         private final List<MediaItem> items;
         private final android.content.Context context;
@@ -1138,4 +1532,142 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             }
         }
     }
+
+    // Adapter for Lenses switcher (Snapchat Lens layout style)
+    private static class LensesAdapter extends androidx.recyclerview.widget.RecyclerView.Adapter<LensesAdapter.ViewHolder> {
+        private final String[] lenses;
+        private String activeLens;
+        private final OnLensClickListener listener;
+
+        interface OnLensClickListener {
+            void onLensClick(String lensName);
+        }
+
+        LensesAdapter(String[] lenses, String activeLens, OnLensClickListener listener) {
+            this.lenses = lenses;
+            this.activeLens = activeLens;
+            this.listener = listener;
+        }
+
+        @NonNull
+        @Override
+        public ViewHolder onCreateViewHolder(@NonNull android.view.ViewGroup parent, int viewType) {
+            TextView tv = new TextView(parent.getContext());
+            tv.setLayoutParams(new ViewGroup.MarginLayoutParams(160, 160));
+            tv.setGravity(android.view.Gravity.CENTER);
+            tv.setTextSize(11);
+            tv.setPadding(8, 8, 8, 8);
+            return new ViewHolder(tv);
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+            String name = lenses[position];
+            holder.textView.setText(name);
+            
+            android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable();
+            gd.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+            
+            if (name.equals(activeLens)) {
+                holder.textView.setTextColor(android.graphics.Color.parseColor("#00F2FF"));
+                gd.setColor(android.graphics.Color.parseColor("#1A00F2FF"));
+                gd.setStroke(4, android.graphics.Color.parseColor("#00F2FF"));
+            } else {
+                holder.textView.setTextColor(android.graphics.Color.WHITE);
+                gd.setColor(android.graphics.Color.parseColor("#4D000000"));
+                gd.setStroke(2, android.graphics.Color.parseColor("#4DFFFFFF"));
+            }
+            holder.textView.setBackground(gd);
+
+            ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) holder.textView.getLayoutParams();
+            if (params != null) {
+                params.setMargins(16, 0, 16, 0);
+                holder.textView.setLayoutParams(params);
+            }
+
+            holder.textView.setOnClickListener(v -> {
+                activeLens = name;
+                notifyDataSetChanged();
+                if (listener != null) listener.onLensClick(name);
+            });
+        }
+
+        @Override
+        public int getItemCount() { return lenses.length; }
+
+        static class ViewHolder extends androidx.recyclerview.widget.RecyclerView.ViewHolder {
+            TextView textView;
+            ViewHolder(TextView tv) { super(tv); this.textView = tv; }
+        }
+    }
+
+    // Memories 3-column Grid View Adapter
+    private static class MemoriesGridAdapter extends androidx.recyclerview.widget.RecyclerView.Adapter<MemoriesGridAdapter.ViewHolder> {
+        private final List<MediaItem> items;
+        private final android.content.Context context;
+        private final OnItemClickListener listener;
+
+        interface OnItemClickListener {
+            void onItemClick(int position);
+        }
+
+        MemoriesGridAdapter(android.content.Context context, List<MediaItem> items, OnItemClickListener listener) {
+            this.context = context;
+            this.items = items;
+            this.listener = listener;
+        }
+
+        @NonNull
+        @Override
+        public ViewHolder onCreateViewHolder(@NonNull android.view.ViewGroup parent, int viewType) {
+            ImageView iv = new ImageView(parent.getContext());
+            int width = parent.getWidth() / 3;
+            iv.setLayoutParams(new ViewGroup.LayoutParams(width, width));
+            iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            iv.setPadding(4, 4, 4, 4);
+            return new ViewHolder(iv);
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+            MediaItem item = items.get(position);
+            holder.imageView.setImageURI(item.uri);
+            holder.imageView.setOnClickListener(v -> {
+                if (listener != null) listener.onItemClick(position);
+            });
+        }
+
+        @Override
+        public int getItemCount() { return items.size(); }
+
+        static class ViewHolder extends androidx.recyclerview.widget.RecyclerView.ViewHolder {
+            ImageView imageView;
+            ViewHolder(ImageView iv) { super(iv); this.imageView = iv; }
+        }
+    }
+
+    private long recordingStartTime = 0;
+    private final Handler timerHandler = new Handler(Looper.getMainLooper());
+    private final Runnable timerRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (activeRecording == null) return;
+            long millis = System.currentTimeMillis() - recordingStartTime;
+            int seconds = (int) (millis / 1000);
+            int minutes = seconds / 60;
+            seconds = seconds % 60;
+            
+            TextView timerText = findViewById(R.id.recording_timer);
+            if (timerText != null) {
+                timerText.setText(String.format(Locale.US, "%02d:%02d", minutes, seconds));
+            }
+            
+            View dot = findViewById(R.id.recording_dot);
+            if (dot != null) {
+                dot.setVisibility(dot.getVisibility() == View.VISIBLE ? View.INVISIBLE : View.VISIBLE);
+            }
+            
+            timerHandler.postDelayed(this, 1000);
+        }
+    };
 }

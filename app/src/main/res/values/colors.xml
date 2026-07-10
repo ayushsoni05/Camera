@@ -10,4 +10,10 @@
     <color name="neon_green">#39FF14</color>
     <color name="liquid_indigo">#6366F1</color>
     <color name="transparent">#00000000</color>
+    <color name="snap_yellow">#FFFC00</color>
+    <color name="record_red">#FF3B30</color>
+    <color name="selfie_flash">#FFFDE7</color>
+    <color name="doodle_default">#FF2D55</color>
+    <color name="lens_active">#00F2FF</color>
+    <color name="post_capture_bg">#F5000000</color>
 </resources>

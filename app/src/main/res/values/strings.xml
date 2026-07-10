@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Camera</string>
+    <string name="app_name">PrismaticAura</string>
     <string name="capture_photo">Capture Photo</string>
     <string name="grid_toggle">Toggle Grid</string>
     <string name="timer_toggle">Toggle Timer</string>
@@ -12,5 +12,22 @@
     <string name="mode_night">NIGHT</string>
     <string name="mode_hdr">HDR</string>
     <string name="exposure_slider">Exposure Slider</string>
-    <string name="gallery_title">Prismatic Gallery</string>
+    <string name="gallery_title">Memories</string>
+    <string name="lens_none">None</string>
+    <string name="lens_dog">Dog</string>
+    <string name="lens_glasses">Glasses</string>
+    <string name="lens_crown">Crown</string>
+    <string name="lens_stache">Stache</string>
+    <string name="post_capture_title">Preview</string>
+    <string name="btn_save">Save</string>
+    <string name="btn_share_snap">Share</string>
+    <string name="btn_text_tool">Text</string>
+    <string name="btn_doodle_tool">Draw</string>
+    <string name="btn_sticker_tool">Sticker</string>
+    <string name="btn_mute_toggle">Mute</string>
+    <string name="tutorial_title">Welcome to PrismaticAura</string>
+    <string name="tutorial_hold">Hold the shutter to record video</string>
+    <string name="tutorial_double_tap">Double-tap to flip camera</string>
+    <string name="tutorial_swipe_up">Swipe up for Memories</string>
+    <string name="tutorial_swipe_filter">Swipe left/right on preview to change filters</string>
 </resources>
