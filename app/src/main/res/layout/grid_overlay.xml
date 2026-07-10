@@ -1,0 +1,29 @@
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Horizontal Grid Lines -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#4DFFFFFF"
+        android:layout_marginTop="0dp"
+        android:id="@+id/h_line_1" />
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#4DFFFFFF"
+        android:layout_marginTop="0dp"
+        android:id="@+id/h_line_2" />
+        
+    <!-- Vertical Grid Lines -->
+    <View
+        android:layout_width="1dp"
+        android:layout_height="match_parent"
+        android:background="#4DFFFFFF"
+        android:layout_marginStart="0dp"
+        android:id="@+id/v_line_1" />
+    <View
+        android:layout_width="1dp"
+        android:layout_height="match_parent"
+        android:background="#4DFFFFFF"
+        android:layout_marginStart="0dp"
+        android:id="@+id/v_line_2" />
+</merge>
