@@ -554,11 +554,335 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         }
     }
 
+    private boolean isGhostModeEnabled = false;
+    private double lastUserLat = 34.0522;
+    private double lastUserLng = -118.2437;
+    
+    private static class MockFriendLocation {
+        String name;
+        String emoji;
+        double latOffset;
+        double lngOffset;
+        double currentLat;
+        double currentLng;
+        
+        MockFriendLocation(String name, String emoji, double latOffset, double lngOffset) {
+            this.name = name;
+            this.emoji = emoji;
+            this.latOffset = latOffset;
+            this.lngOffset = lngOffset;
+        }
+    }
+    
+    private static class MockHotspot {
+        String name;
+        double latOffset;
+        double lngOffset;
+        String[] storyUrls;
+        
+        MockHotspot(String name, double latOffset, double lngOffset, String[] storyUrls) {
+            this.name = name;
+            this.latOffset = latOffset;
+            this.lngOffset = lngOffset;
+            this.storyUrls = storyUrls;
+        }
+    }
+    
+    private final List<MockFriendLocation> mapFriends = new ArrayList<>();
+    private final List<MockHotspot> mapHotspots = new ArrayList<>();
+    private android.os.Handler mapUpdateHandler;
+    private Runnable mapUpdateRunnable;
+
     private void setupLocationMap() {
+        if (mapFriends.isEmpty()) {
+            mapFriends.add(new MockFriendLocation("Alex", "👦", 0.003, -0.005));
+            mapFriends.add(new MockFriendLocation("Jessica", "👧", -0.004, 0.006));
+            mapFriends.add(new MockFriendLocation("Sam", "👨", 0.007, 0.002));
+            mapFriends.add(new MockFriendLocation("Sarah", "👩", -0.006, -0.004));
+        }
+        if (mapHotspots.isEmpty()) {
+            mapHotspots.add(new MockHotspot("Santa Monica Beach", 0.012, -0.012, new String[]{
+                "https://assets.mixkit.co/videos/preview/mixkit-waves-breaking-in-the-ocean-1527-large.mp4",
+                "https://assets.mixkit.co/videos/preview/mixkit-aerial-view-of-a-beach-with-waves-11880-large.mp4"
+            }));
+            mapHotspots.add(new MockHotspot("Snap Café & Lounge", -0.002, -0.003, new String[]{
+                "https://assets.mixkit.co/videos/preview/mixkit-pouring-hot-coffee-into-a-cup-42207-large.mp4"
+            }));
+            mapHotspots.add(new MockHotspot("Tech Plaza Festival", 0.008, 0.008, new String[]{
+                "https://assets.mixkit.co/videos/preview/mixkit-dj-playing-music-at-a-club-42588-large.mp4"
+            }));
+        }
+
+        if (mapWebView != null) {
+            mapWebView.getSettings().setJavaScriptEnabled(true);
+            mapWebView.getSettings().setDomStorageEnabled(true);
+            mapWebView.getSettings().setAllowFileAccess(true);
+            mapWebView.addJavascriptInterface(new MapJavaScriptInterface(), "AndroidMap");
+            mapWebView.setWebViewClient(new WebViewClient() {
+                @Override
+                public void onPageFinished(WebView view, String url) {
+                    refreshMapUI();
+                }
+            });
+            mapWebView.loadUrl("file:///android_asset/map_index.html");
+        }
+
+        androidx.appcompat.widget.SwitchCompat ghostSwitch = findViewById(R.id.map_ghost_mode_switch);
+        if (ghostSwitch != null) {
+            ghostSwitch.setChecked(isGhostModeEnabled);
+            ghostSwitch.setOnCheckedChangeListener((btn, isChecked) -> {
+                isGhostModeEnabled = isChecked;
+                showToast(isChecked ? "Ghost Mode Enabled 👻" : "Ghost Mode Disabled 🟢");
+                refreshMapUI();
+            });
+        }
+
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             startLocationTracking();
         } else {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 100);
+        }
+
+        startMapLoop();
+    }
+
+    private void startMapLoop() {
+        if (mapUpdateHandler != null) return;
+        mapUpdateHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+        mapUpdateRunnable = new Runnable() {
+            @Override
+            public void run() {
+                for (MockFriendLocation f : mapFriends) {
+                    f.currentLat = lastUserLat + f.latOffset + (Math.random() - 0.5) * 0.0003;
+                    f.currentLng = lastUserLng + f.lngOffset + (Math.random() - 0.5) * 0.0003;
+                }
+                refreshMapUI();
+                mapUpdateHandler.postDelayed(this, 6000);
+            }
+        };
+        mapUpdateHandler.post(mapUpdateRunnable);
+    }
+
+    private void refreshMapUI() {
+        if (mapWebView == null) return;
+        mapWebView.post(() -> {
+            mapWebView.loadUrl("javascript:updateUserLocation(" + lastUserLat + ", " + lastUserLng + ", " + isGhostModeEnabled + ")");
+            
+            for (MockFriendLocation f : mapFriends) {
+                mapWebView.loadUrl("javascript:updateFriendLocation('" + f.name + "', " + f.currentLat + ", " + f.currentLng + ", '" + f.emoji + "')");
+            }
+            
+            for (MockHotspot h : mapHotspots) {
+                double hLat = lastUserLat + h.latOffset;
+                double hLng = lastUserLng + h.lngOffset;
+                mapWebView.loadUrl("javascript:addHotspot('" + h.name + "', " + hLat + ", " + hLng + ")");
+            }
+            
+            updateNearbyFriendsDrawer();
+        });
+    }
+
+    private void updateNearbyFriendsDrawer() {
+        LinearLayout container = findViewById(R.id.map_nearby_scroll_container);
+        if (container == null) return;
+        container.removeAllViews();
+
+        for (MockFriendLocation f : mapFriends) {
+            LinearLayout item = new LinearLayout(this);
+            item.setOrientation(LinearLayout.VERTICAL);
+            item.setBackground(ContextCompat.getDrawable(this, R.drawable.glass_rec_pill));
+            item.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#2E2E3E")));
+            item.setPadding(24, 16, 24, 16);
+            item.setGravity(android.view.Gravity.CENTER);
+            
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(260, ViewGroup.LayoutParams.WRAP_CONTENT);
+            lp.setMargins(0, 0, 16, 0);
+            item.setLayoutParams(lp);
+
+            TextView avatar = new TextView(this);
+            avatar.setText(f.emoji);
+            avatar.setTextSize(24);
+            item.addView(avatar);
+
+            TextView name = new TextView(this);
+            name.setText(f.name);
+            name.setTextColor(android.graphics.Color.WHITE);
+            name.setTextSize(12);
+            name.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            name.setGravity(android.view.Gravity.CENTER);
+            name.setPadding(0, 8, 0, 4);
+            item.addView(name);
+
+            TextView distance = new TextView(this);
+            double dist = Math.round(Math.sqrt(Math.pow(f.latOffset, 2) + Math.pow(f.lngOffset, 2)) * 111.0 * 10.0) / 10.0;
+            distance.setText(dist + " km");
+            distance.setTextColor(android.graphics.Color.parseColor("#B3FFFFFF"));
+            distance.setTextSize(10);
+            item.addView(distance);
+
+            item.setOnClickListener(v -> {
+                if (mapWebView != null) {
+                    mapWebView.loadUrl("javascript:map.panTo([" + f.currentLat + ", " + f.currentLng + "])");
+                    showToast("Panning to " + f.name);
+                }
+            });
+            container.addView(item);
+        }
+
+        for (MockHotspot h : mapHotspots) {
+            LinearLayout item = new LinearLayout(this);
+            item.setOrientation(LinearLayout.VERTICAL);
+            item.setBackground(ContextCompat.getDrawable(this, R.drawable.glass_rec_pill));
+            item.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#443C22")));
+            item.setPadding(24, 16, 24, 16);
+            item.setGravity(android.view.Gravity.CENTER);
+            
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(260, ViewGroup.LayoutParams.WRAP_CONTENT);
+            lp.setMargins(0, 0, 16, 0);
+            item.setLayoutParams(lp);
+
+            TextView avatar = new TextView(this);
+            avatar.setText("🔥");
+            avatar.setTextSize(24);
+            item.addView(avatar);
+
+            TextView name = new TextView(this);
+            name.setText(h.name);
+            name.setTextColor(android.graphics.Color.WHITE);
+            name.setTextSize(11);
+            name.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            name.setGravity(android.view.Gravity.CENTER);
+            name.setPadding(0, 8, 0, 4);
+            item.addView(name);
+
+            TextView count = new TextView(this);
+            count.setText("Public Story");
+            count.setTextColor(android.graphics.Color.parseColor("#FFFC00"));
+            count.setTextSize(9);
+            item.addView(count);
+
+            item.setOnClickListener(v -> {
+                if (mapWebView != null) {
+                    double hLat = lastUserLat + h.latOffset;
+                    double hLng = lastUserLng + h.lngOffset;
+                    mapWebView.loadUrl("javascript:map.panTo([" + hLat + ", " + hLng + "])");
+                    playMapHotspotStories(h.name);
+                }
+            });
+            container.addView(item);
+        }
+    }
+
+    private void playMapHotspotStories(String placeName) {
+        MockHotspot target = null;
+        for (MockHotspot h : mapHotspots) {
+            if (h.name.equals(placeName)) {
+                target = h;
+                break;
+            }
+        }
+        if (target == null) return;
+
+        activeStorySegments = new ArrayList<>();
+        int count = 0;
+        for (String url : target.storyUrls) {
+            StoryItem item = new StoryItem(
+                "hotspot_" + placeName + "_" + count,
+                "public",
+                placeName,
+                url,
+                true,
+                System.currentTimeMillis() - 3600000 * 2,
+                System.currentTimeMillis() + 3600000 * 22,
+                "EVERYONE",
+                null,
+                "[]", "[]", "[]", "[]",
+                150 + count * 12, 0, "", ""
+            );
+            activeStorySegments.add(item);
+            count++;
+        }
+
+        runOnUiThread(() -> {
+            View overlay = findViewById(R.id.story_viewer_overlay);
+            if (overlay == null) return;
+            overlay.setVisibility(View.VISIBLE);
+
+            View closeBtn = findViewById(R.id.story_viewer_close);
+            if (closeBtn != null) {
+                closeBtn.setOnClickListener(v -> closeStoryViewer());
+            }
+
+            LinearLayout progressContainer = findViewById(R.id.story_viewer_progress_container);
+            if (progressContainer != null) {
+                progressContainer.removeAllViews();
+                for (int i = 0; i < activeStorySegments.size(); i++) {
+                    android.widget.ProgressBar pb = new android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+                    LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.0f);
+                    lp.setMargins(6, 0, 6, 0);
+                    pb.setLayoutParams(lp);
+                    pb.setMax(100);
+                    pb.setProgress(0);
+                    pb.setProgressDrawable(ContextCompat.getDrawable(this, android.R.drawable.progress_horizontal));
+                    pb.getProgressDrawable().setColorFilter(android.graphics.Color.WHITE, android.graphics.PorterDuff.Mode.SRC_IN);
+                    progressContainer.addView(pb);
+                }
+            }
+
+            View leftTouch = findViewById(R.id.story_viewer_left_touch);
+            View rightTouch = findViewById(R.id.story_viewer_right_touch);
+            
+            if (leftTouch != null) {
+                leftTouch.setOnClickListener(v -> {
+                    if (currentStorySegmentIndex > 0) {
+                        playSegment(currentStorySegmentIndex - 1);
+                    } else {
+                        closeStoryViewer();
+                    }
+                });
+            }
+            if (rightTouch != null) {
+                rightTouch.setOnClickListener(v -> {
+                    if (currentStorySegmentIndex < activeStorySegments.size() - 1) {
+                        playSegment(currentStorySegmentIndex + 1);
+                    } else {
+                        closeStoryViewer();
+                    }
+                });
+            }
+
+            LinearLayout reactionsBar = findViewById(R.id.story_viewer_reactions_bar);
+            if (reactionsBar != null) reactionsBar.removeAllViews();
+            android.widget.ImageButton replySend = findViewById(R.id.story_viewer_reply_send);
+            if (replySend != null) replySend.setOnClickListener(null);
+            
+            playSegment(0);
+        });
+    }
+
+    private class MapJavaScriptInterface {
+        @android.webkit.JavascriptInterface
+        public void onUserMarkerClicked() {
+            runOnUiThread(() -> {
+                showNotification("Snap Map 📍", "This is You! Customize your profile in Settings.", "👻");
+            });
+        }
+
+        @android.webkit.JavascriptInterface
+        public void onFriendClicked(String name) {
+            runOnUiThread(() -> {
+                showNotification("Snap Map 📍", "Tapped " + name + "! Opening Chat...", "💬");
+                activeChatFriend = name;
+                switchTab(2);
+            });
+        }
+
+        @android.webkit.JavascriptInterface
+        public void onHotspotClicked(String placeName) {
+            runOnUiThread(() -> {
+                showNotification("Snap Map 🔥", "Playing Public Stories from: " + placeName, "🎬");
+                playMapHotspotStories(placeName);
+            });
         }
     }
 
@@ -570,20 +894,21 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                 locationListener = new LocationListener() {
                     @Override
                     public void onLocationChanged(@NonNull Location location) {
-                        updateMapCoords(location.getLatitude(), location.getLongitude());
+                        lastUserLat = location.getLatitude();
+                        lastUserLng = location.getLongitude();
                         
-                        // Push real-time location to Firebase Snap Map
-                        if (locationRepo == null) {
-                            locationRepo = new LocationRepository();
+                        refreshMapUI();
+                        
+                        if (locationRepo == null) locationRepo = new LocationRepository();
+                        if (!isGhostModeEnabled) {
+                            locationRepo.updateLocation("currentUser", location);
                         }
-                        locationRepo.updateLocation("currentUser", location);
                     }
                     @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
                     @Override public void onProviderEnabled(@NonNull String provider) {}
                     @Override public void onProviderDisabled(@NonNull String provider) {}
                 };
 
-                // Request location updates from GPS & Network
                 if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
                     lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 5000, 10, locationListener);
                 }
@@ -592,7 +917,6 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                 }
                 isLocationTracking = true;
                 
-                // Fetch best last known location to show immediate results on load
                 Location lastGps = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
                 Location lastNet = lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
                 Location best = lastGps;
@@ -600,19 +924,23 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                     best = lastNet;
                 }
                 if (best != null) {
-                    updateMapCoords(best.getLatitude(), best.getLongitude());
+                    lastUserLat = best.getLatitude();
+                    lastUserLng = best.getLongitude();
+                    refreshMapUI();
+                    
                     if (locationRepo == null) locationRepo = new LocationRepository();
-                    locationRepo.updateLocation("currentUser", best);
+                    if (!isGhostModeEnabled) {
+                        locationRepo.updateLocation("currentUser", best);
+                    }
                 }
                 
-                // Fetch friends' live locations from Firebase and plot on map
                 if (locationRepo != null) {
                     locationRepo.listenForLocations(locations -> {
                         for (java.util.Map.Entry<String, LocationRepository.UserLocation> entry : locations.entrySet()) {
                             String userId = entry.getKey();
                             LocationRepository.UserLocation loc = entry.getValue();
                             if (!userId.equals("currentUser") && mapWebView != null) {
-                                mapWebView.post(() -> mapWebView.loadUrl("javascript:updateLocation(" + loc.latitude + ", " + loc.longitude + ")"));
+                                mapWebView.post(() -> mapWebView.loadUrl("javascript:updateFriendLocation('" + userId + "', " + loc.latitude + ", " + loc.longitude + ", '👦')"));
                             }
                         }
                     });
@@ -637,9 +965,9 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
     }
 
     private void updateMapCoords(double lat, double lng) {
-        if (mapWebView != null) {
-            mapWebView.post(() -> mapWebView.loadUrl("javascript:updateLocation(" + lat + ", " + lng + ")"));
-        }
+        lastUserLat = lat;
+        lastUserLng = lng;
+        refreshMapUI();
     }
 
     private void startSpotlightVideo(int index) {
