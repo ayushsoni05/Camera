@@ -172,7 +172,7 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
 
     // Splash screen views
     private View splashScreen;
-    private com.airbnb.lottie.LottieAnimationView splashLottie;
+    private ImageView splashLottie;
     private TextView splashTitle;
 
     // Navigation layout layers
@@ -408,30 +408,34 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         splashScreen = findViewById(R.id.splash_screen_overlay);
         splashLottie = findViewById(R.id.splash_lottie);
         splashTitle = findViewById(R.id.splash_title);
+        TextView splashSlogan = findViewById(R.id.splash_slogan);
 
         if (splashScreen != null && splashLottie != null && splashTitle != null) {
             // Setup initial animated states
             splashTitle.setAlpha(0f);
             splashTitle.setTranslationY(40f);
             
-            splashLottie.setScaleX(0.4f);
-            splashLottie.setScaleY(0.4f);
+            if (splashSlogan != null) {
+                splashSlogan.setAlpha(0f);
+                splashSlogan.setTranslationY(30f);
+            }
+            
+            splashLottie.setScaleX(0.2f);
+            splashLottie.setScaleY(0.2f);
             splashLottie.setAlpha(0f);
-
-            splashLottie.playAnimation();
 
             // 1. Logo overshoot scale-in animation
             splashLottie.animate()
                     .scaleX(1.1f)
                     .scaleY(1.1f)
                     .alpha(1f)
-                    .setDuration(800)
-                    .setInterpolator(new android.view.animation.OvershootInterpolator())
+                    .setDuration(900)
+                    .setInterpolator(new android.view.animation.OvershootInterpolator(1.8f))
                     .withEndAction(() -> {
                         splashLottie.animate()
                                 .scaleX(1.0f)
                                 .scaleY(1.0f)
-                                .setDuration(200)
+                                .setDuration(250)
                                 .start();
                     })
                     .start();
@@ -440,21 +444,41 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             splashTitle.animate()
                     .alpha(1f)
                     .translationY(0f)
-                    .setDuration(800)
-                    .setStartDelay(300)
+                    .setDuration(900)
+                    .setStartDelay(350)
+                    .setInterpolator(new android.view.animation.DecelerateInterpolator())
                     .start();
 
-            // 3. Cinematic Curtain slide-up exit animation (reveals the camera)
+            // 3. Slogan fade-in and slide-up
+            if (splashSlogan != null) {
+                splashSlogan.animate()
+                        .alpha(1f)
+                        .translationY(0f)
+                        .setDuration(900)
+                        .setStartDelay(600)
+                        .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                        .start();
+            }
+
+            // 4. Cinematic Curtain slide-up exit animation (reveals the camera)
             splashScreen.post(() -> {
                 splashScreen.animate()
                         .translationY(-splashScreen.getHeight())
-                        .setDuration(900)
-                        .setStartDelay(2400)
+                        .alpha(0f)
+                        .setDuration(1100)
+                        .setStartDelay(2600)
                         .setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator())
                         .withEndAction(() -> {
                             splashScreen.setVisibility(View.GONE);
-                            splashLottie.cancelAnimation();
                         })
+                        .start();
+                
+                // Cinematic scaling out of logo during curtain slide
+                splashLottie.animate()
+                        .scaleX(0.7f)
+                        .scaleY(0.7f)
+                        .setDuration(1000)
+                        .setStartDelay(2600)
                         .start();
             });
         }

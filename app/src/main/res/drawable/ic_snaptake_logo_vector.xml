@@ -1,0 +1,38 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+      
+    <!-- Ghost body outline (white fill, thick black border) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#000000"
+        android:strokeWidth="4"
+        android:strokeLineJoin="round"
+        android:pathData="M50,15 C32,15 22,25 22,43 C22,48 24,53 25,56 C26,59 23,62 20,65 C17,68 18,72 23,73 C26,73.5 28,71 31,70 C33,69.5 35,71 36,73 C37,76 40,78 45,78 C48,78 50,76.5 52,76.5 C54,76.5 56,78 59,78 C64,78 67,76 68,73 C69,71 71,69.5 73,70 C76,71 78,73.5 81,73 C86,72 87,68 84,65 C81,62 78,59 79,56 C80,53 82,48 82,43 C82,25 72,15 50,15 Z" />
+      
+    <!-- Ghost eyes -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M42,35 A3,4 0 1,1 36,35 A3,4 0 1,1 42,35 Z M64,35 A3,4 0 1,1 58,35 A3,4 0 1,1 64,35 Z" />
+      
+    <!-- Camera Lens Body -->
+    <path
+        android:fillColor="#FFFC00"
+        android:strokeColor="#000000"
+        android:strokeWidth="3"
+        android:pathData="M38,48 h24 v16 h-24 z" />
+      
+    <!-- Camera Lens Circular Ring -->
+    <path
+        android:fillColor="#00F2FF"
+        android:strokeColor="#000000"
+        android:strokeWidth="2.5"
+        android:pathData="M50,56 m-6,0 a6,6 0 1,1 12,0 a6,6 0 1,1 -12,0" />
+      
+    <!-- Camera Lens Aperture -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M50,56 m-2,0 a2,2 0 1,1 4,0 a2,2 0 1,1 -4,0" />
+</vector>

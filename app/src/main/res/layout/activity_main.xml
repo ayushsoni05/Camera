@@ -3515,14 +3515,12 @@
             android:gravity="center"
             android:layout_gravity="center">
 
-            <!-- SnapTake Premium Lottie Logo -->
-            <com.airbnb.lottie.LottieAnimationView
+            <!-- SnapTake Premium Logo Vector -->
+            <ImageView
                 android:id="@+id/splash_lottie"
                 android:layout_width="160dp"
                 android:layout_height="160dp"
-                app:lottie_fileName="splash_animation.json"
-                app:lottie_loop="true"
-                app:lottie_autoPlay="true" />
+                android:src="@drawable/ic_snaptake_logo_vector" />
 
             <!-- Title -->
             <TextView
@@ -3531,10 +3529,21 @@
                 android:layout_height="wrap_content"
                 android:text="SnapTake"
                 android:textColor="@color/black"
-                android:textSize="36sp"
+                android:textSize="38sp"
                 android:textStyle="bold"
                 android:fontFamily="sans-serif-black"
                 android:layout_marginTop="20dp" />
+
+            <!-- Slogan -->
+            <TextView
+                android:id="@+id/splash_slogan"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Capture. Stitch. Share. ✨"
+                android:textColor="#80000000"
+                android:textSize="14sp"
+                android:fontFamily="sans-serif-medium"
+                android:layout_marginTop="8dp" />
         </LinearLayout>
     </FrameLayout>
 
