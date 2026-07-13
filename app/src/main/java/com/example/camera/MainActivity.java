@@ -21,7 +21,6 @@ import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.TextView;
-import android.widget.Toast;
 import android.widget.ScrollView;
 import android.widget.LinearLayout;
 import android.widget.GridLayout;
@@ -2400,9 +2399,12 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                 lpDel.addRule(RelativeLayout.ALIGN_PARENT_END);
                 lpDel.addRule(RelativeLayout.CENTER_VERTICAL);
                 deleteTv.setOnClickListener(v -> {
-                    profileFriendsList.remove(friend);
-                    Toast.makeText(this, friend + " removed.", Toast.LENGTH_SHORT).show();
-                    refreshProfileFriendsList();
+                    SnapAlertHelper.showDialog(this, "Remove Friend?", "Are you sure you want to remove " + friend + "?", 
+                            "Remove", () -> {
+                                profileFriendsList.remove(friend);
+                                Toast.makeText(this, friend + " removed.", Toast.LENGTH_SHORT).show();
+                                refreshProfileFriendsList();
+                            }, "Cancel", null);
                 });
                 row.addView(deleteTv, lpDel);
 
@@ -4880,6 +4882,14 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                 Log.e(TAG, "Collage assembly failed", e);
             }
         });
+    }
+
+    public void showToast(String message) {
+        SnapAlertHelper.showToast(this, message);
+    }
+    
+    public void showNotification(String title, String body, String emoji) {
+        SnapAlertHelper.showNotification(this, title, body, emoji);
     }
 
     private Uri saveBitmapToGallery(android.graphics.Bitmap bitmap) {
