@@ -35,6 +35,29 @@
             app:layout_constraintStart_toStartOf="@id/viewFinder"
             app:layout_constraintEnd_toEndOf="@id/viewFinder" />
 
+        <!-- Grid Helper Overlay (3x3 grid) -->
+        <ImageView
+            android:id="@+id/viewfinder_grid_helper"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="gone"
+            android:scaleType="fitXY"
+            app:layout_constraintTop_toTopOf="@id/viewFinder"
+            app:layout_constraintBottom_toBottomOf="@id/viewFinder"
+            app:layout_constraintStart_toStartOf="@id/viewFinder"
+            app:layout_constraintEnd_toEndOf="@id/viewFinder" />
+
+        <!-- Leveler Helper Line -->
+        <ImageView
+            android:id="@+id/viewfinder_leveler_line"
+            android:layout_width="160dp"
+            android:layout_height="160dp"
+            android:visibility="gone"
+            app:layout_constraintTop_toTopOf="@id/viewFinder"
+            app:layout_constraintBottom_toBottomOf="@id/viewFinder"
+            app:layout_constraintStart_toStartOf="@id/viewFinder"
+            app:layout_constraintEnd_toEndOf="@id/viewFinder" />
+
         <!-- Grid Guidelines -->
         <androidx.constraintlayout.widget.Guideline
             android:id="@+id/h_guide_1"
@@ -334,6 +357,27 @@
                 android:layout_gravity="center"
                 android:background="@color/white" />
         </FrameLayout>
+
+        <!-- Multi-Snap Filmstrip preview panel -->
+        <HorizontalScrollView
+            android:id="@+id/multi_snap_filmstrip_container"
+            android:layout_width="0dp"
+            android:layout_height="64dp"
+            android:layout_marginBottom="16dp"
+            android:visibility="gone"
+            android:scrollbars="none"
+            app:layout_constraintBottom_toTopOf="@id/capture_container"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+            <LinearLayout
+                android:id="@+id/multi_snap_filmstrip"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp" />
+        </HorizontalScrollView>
 
         <!-- ===== STATIC SHUTTER BUTTON (Fixed above nav bar — never moves) ===== -->
         <FrameLayout
@@ -1606,6 +1650,13 @@
             android:layout_height="match_parent"
             android:visibility="gone" />
 
+        <!-- Scissors Tracing Canvas Overlay -->
+        <com.example.camera.ScissorsTraceView
+            android:id="@+id/scissors_trace_canvas"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+
         <!-- Overlay container for moveable stickers & text layers -->
         <FrameLayout
             android:id="@+id/post_capture_overlay_container"
@@ -1928,6 +1979,610 @@
                 android:textAllCaps="false"
                 android:textSize="16sp"
                 android:backgroundTint="@color/ui_highlight" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- ==================== SEARCH OVERLAY ==================== -->
+    <FrameLayout
+        android:id="@+id/search_overlay_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#F20A0A0E"
+        android:elevation="90dp"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:paddingTop="36dp">
+
+            <!-- Search Header -->
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp">
+
+                <ImageButton
+                    android:id="@+id/search_btn_back"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_alignParentStart="true"
+                    android:layout_centerVertical="true"
+                    android:background="@android:color/transparent"
+                    android:src="@android:drawable/ic_menu_revert"
+                    app:tint="@color/white" />
+
+                <EditText
+                    android:id="@+id/search_input"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:layout_toEndOf="@id/search_btn_back"
+                    android:layout_marginStart="16dp"
+                    android:layout_centerVertical="true"
+                    android:background="@drawable/glass_rec_pill"
+                    android:backgroundTint="#2AFFFFFF"
+                    android:hint="Search Lenses or Friends..."
+                    android:textColorHint="#90FFFFFF"
+                    android:textColor="@color/white"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:singleLine="true" />
+            </RelativeLayout>
+
+            <!-- Search Results Scroll container -->
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:padding="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <!-- Lenses Section -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="LENSES"
+                        android:textColor="@color/ui_highlight"
+                        android:textStyle="bold"
+                        android:textSize="12sp"
+                        android:layout_marginBottom="8dp" />
+
+                    <!-- Live Grid of matching Lenses -->
+                    <GridLayout
+                        android:id="@+id/search_lenses_grid"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:columnCount="3"
+                        android:alignmentMode="alignMargins"
+                        android:layout_marginBottom="24dp" />
+
+                    <!-- Friends Section -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="FRIENDS"
+                        android:textColor="@color/ui_highlight"
+                        android:textStyle="bold"
+                        android:textSize="12sp"
+                        android:layout_marginBottom="8dp" />
+
+                    <LinearLayout
+                        android:id="@+id/search_friends_list"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginBottom="24dp" />
+
+                    <!-- Public Channels Section -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="CHANNELS"
+                        android:textColor="@color/ui_highlight"
+                        android:textStyle="bold"
+                        android:textSize="12sp"
+                        android:layout_marginBottom="8dp" />
+
+                    <LinearLayout
+                        android:id="@+id/search_channels_list"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+                </LinearLayout>
+            </ScrollView>
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- ==================== PROFILE OVERLAY ==================== -->
+    <FrameLayout
+        android:id="@+id/profile_overlay_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#F20B0C10"
+        android:elevation="95dp"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:paddingTop="36dp">
+
+            <!-- Profile Header -->
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp">
+
+                <ImageButton
+                    android:id="@+id/profile_btn_back"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_alignParentStart="true"
+                    android:layout_centerVertical="true"
+                    android:background="@android:color/transparent"
+                    android:src="@android:drawable/ic_menu_revert"
+                    app:tint="@color/white" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    android:text="My Profile"
+                    android:textColor="@color/white"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+            </RelativeLayout>
+
+            <!-- Scrollable content -->
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:padding="20dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center">
+
+                    <!-- Snapchat Yellow Snapcode Card -->
+                    <androidx.cardview.widget.CardView
+                        android:layout_width="140dp"
+                        android:layout_height="140dp"
+                        app:cardCornerRadius="20dp"
+                        app:cardBackgroundColor="@color/snap_yellow"
+                        android:elevation="6dp"
+                        android:layout_marginBottom="16dp">
+                        
+                        <ImageView
+                            android:layout_width="96dp"
+                            android:layout_height="96dp"
+                            android:layout_gravity="center"
+                            android:src="@android:drawable/ic_menu_myplaces"
+                            app:tint="@color/black" />
+                    </androidx.cardview.widget.CardView>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Snaptaker"
+                        android:textColor="@color/white"
+                        android:textSize="22sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/profile_snap_score"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="👻 104,285 snapscore"
+                        android:textColor="@color/snap_yellow"
+                        android:textSize="14sp"
+                        android:layout_marginTop="4dp"
+                        android:layout_marginBottom="24dp" />
+
+                    <!-- Settings Card Box -->
+                    <androidx.cardview.widget.CardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        app:cardCornerRadius="16dp"
+                        app:cardBackgroundColor="#20FFFFFF"
+                        android:layout_marginBottom="24dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="16dp">
+
+                            <!-- Story Privacy Toggle -->
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="STORY PRIVACY"
+                                android:textColor="#B0FFFFFF"
+                                android:textSize="11sp"
+                                android:textStyle="bold"
+                                android:layout_marginBottom="8dp" />
+
+                            <android.widget.Spinner
+                                android:id="@+id/privacy_spinner"
+                                android:layout_width="match_parent"
+                                android:layout_height="44dp"
+                                android:backgroundTint="@color/white"
+                                android:layout_marginBottom="16dp" />
+
+                            <!-- Theme Toggle -->
+                            <RelativeLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="44dp">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_alignParentStart="true"
+                                    android:layout_centerVertical="true"
+                                    android:text="App Dark Mode"
+                                    android:textColor="@color/white"
+                                    android:textSize="14sp" />
+
+                                <android.widget.Switch
+                                    android:id="@+id/theme_toggle_switch"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_alignParentEnd="true"
+                                    android:layout_centerVertical="true"
+                                    android:checked="true"
+                                    android:thumbTint="@color/snap_yellow"
+                                    android:trackTint="#A0FFFFFF" />
+                            </RelativeLayout>
+                        </LinearLayout>
+                    </androidx.cardview.widget.CardView>
+
+                    <!-- Friends Manager Section -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="start"
+                        android:text="MY FRIENDS"
+                        android:textColor="#B0FFFFFF"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="12dp" />
+
+                    <!-- Quick Friend Addition Bar -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="12dp">
+
+                        <EditText
+                            android:id="@+id/friend_add_input"
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1"
+                            android:background="@drawable/glass_rec_pill"
+                            android:backgroundTint="#2AFFFFFF"
+                            android:hint="Add friend username..."
+                            android:textColorHint="#80FFFFFF"
+                            android:textColor="@color/white"
+                            android:paddingStart="12dp"
+                            android:paddingEnd="12dp"
+                            android:textSize="14sp" />
+
+                        <Button
+                            android:id="@+id/friend_add_btn"
+                            android:layout_width="wrap_content"
+                            android:layout_height="match_parent"
+                            android:layout_marginStart="12dp"
+                            android:backgroundTint="@color/snap_yellow"
+                            android:textColor="@color/black"
+                            android:text="Add"
+                            android:textAllCaps="false" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/profile_friends_list"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+                </LinearLayout>
+            </ScrollView>
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- ==================== MORE TOOLS BOTTOM SHEET ==================== -->
+    <FrameLayout
+        android:id="@+id/more_tools_drawer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#66000000"
+        android:elevation="85dp"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="320dp"
+            android:layout_gravity="bottom"
+            android:background="#E612141C"
+            android:padding="20dp">
+
+            <View
+                android:layout_width="40dp"
+                android:layout_height="4dp"
+                android:layout_centerHorizontal="true"
+                android:background="#4DFFFFFF"
+                android:layout_marginBottom="16dp" />
+
+            <TextView
+                android:id="@+id/more_tools_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="More Camera Tools"
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:layout_centerHorizontal="true"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="20dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/more_tools_title"
+                android:orientation="vertical">
+
+                <!-- 1. Grid Line Switch -->
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentStart="true"
+                        android:layout_centerVertical="true"
+                        android:text="Camera 3x3 Grid Overlay"
+                        android:textColor="@color/white"
+                        android:textSize="14sp" />
+                    <android.widget.Switch
+                        android:id="@+id/tool_toggle_grid"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        android:trackTint="#A0FFFFFF"
+                        android:thumbTint="@color/snap_yellow" />
+                </RelativeLayout>
+
+                <!-- 2. Leveler Line Switch -->
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentStart="true"
+                        android:layout_centerVertical="true"
+                        android:text="Digital Leveler Helper"
+                        android:textColor="@color/white"
+                        android:textSize="14sp" />
+                    <android.widget.Switch
+                        android:id="@+id/tool_toggle_leveler"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        android:trackTint="#A0FFFFFF"
+                        android:thumbTint="@color/snap_yellow" />
+                </RelativeLayout>
+
+                <!-- 3. Night Mode Boost Switch -->
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentStart="true"
+                        android:layout_centerVertical="true"
+                        android:text="Simulated Night exposure boost"
+                        android:textColor="@color/white"
+                        android:textSize="14sp" />
+                    <android.widget.Switch
+                        android:id="@+id/tool_toggle_night"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        android:trackTint="#A0FFFFFF"
+                        android:thumbTint="@color/snap_yellow" />
+                </RelativeLayout>
+
+                <!-- 4. Cycle Aspect Ratios -->
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentStart="true"
+                        android:layout_centerVertical="true"
+                        android:text="Switch Aspect Ratio (16:9 / 4:3 / 1:1)"
+                        android:textColor="@color/white"
+                        android:textSize="14sp" />
+                    <Button
+                        android:id="@+id/tool_btn_aspect"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        android:text="16:9"
+                        android:textSize="11sp"
+                        android:backgroundTint="#33FFFFFF"
+                        android:textColor="@color/white" />
+                </RelativeLayout>
+            </LinearLayout>
+        </RelativeLayout>
+    </FrameLayout>
+
+    <!-- ==================== DISCOVER PLAYER OVERLAY ==================== -->
+    <FrameLayout
+        android:id="@+id/discover_player_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/black"
+        android:elevation="98dp"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <!-- VideoView / ImageView container -->
+        <ImageView
+            android:id="@+id/discover_viewer_image"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:visibility="gone" />
+
+        <VideoView
+            android:id="@+id/discover_viewer_video"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:visibility="gone" />
+
+        <!-- Overlay touch zone navigation -->
+        <View
+            android:id="@+id/discover_viewer_left_touch"
+            android:layout_width="100dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="start"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <View
+            android:id="@+id/discover_viewer_right_touch"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginStart="100dp"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <!-- Linear segmented progress indicators -->
+        <LinearLayout
+            android:id="@+id/discover_viewer_progress_container"
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:layout_marginTop="40dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:orientation="horizontal" />
+
+        <!-- Header metadata layer -->
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:layout_marginTop="48dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_alignParentStart="true"
+                android:layout_centerVertical="true">
+
+                <TextView
+                    android:id="@+id/discover_viewer_publisher"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/white"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/discover_viewer_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#CCCCCC"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- Subscribe Button inside player -->
+            <Button
+                android:id="@+id/discover_viewer_subscribe_btn"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:layout_marginEnd="40dp"
+                android:backgroundTint="@color/snap_yellow"
+                android:textColor="@color/black"
+                android:textSize="12sp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="Subscribe"
+                android:textAllCaps="false" />
+
+            <ImageButton
+                android:id="@+id/discover_viewer_close"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:background="@android:color/transparent"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                app:tint="@color/white" />
+        </RelativeLayout>
+
+        <!-- Subscription Star flying / Subscribe animation overlay -->
+        <TextView
+            android:id="@+id/discover_viewer_sub_anim"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⭐ Subscribed!"
+            android:textColor="@color/snap_yellow"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:layout_gravity="center"
+            android:visibility="gone" />
+
+        <!-- Swipe indicator at bottom -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="40dp"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@android:drawable/arrow_up_float"
+                app:tint="@color/white" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Swipe Up for Next Channel"
+                android:textColor="@color/white"
+                android:textSize="11sp"
+                android:textStyle="bold" />
         </LinearLayout>
     </FrameLayout>
 

@@ -39,6 +39,10 @@ import android.content.DialogInterface;
 import android.widget.VideoView;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.widget.Button;
 import java.io.File;
 import java.util.Collections;
 import java.util.Comparator;
@@ -192,6 +196,16 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
     private Runnable storyProgressRunnable;
     private int storyProgressTick = 0;
     private static final int STORY_PHOTO_DURATION_MS = 5000; // 5 seconds
+    
+    // Friends list for Profile and Search
+    private final List<String> profileFriendsList = new ArrayList<>();
+
+    // State variables for Camera Page features
+    private boolean isBurstModeActive = false;
+    private int selectedAspectMode = 0; // 0 = 16:9, 1 = 4:3, 2 = 1:1
+    private boolean isNightBoostActive = false;
+    private final List<Uri> multiSnapCapturedUris = new ArrayList<>();
+    private boolean isMultiSnapActive = false;
 
     // Bottom Navigation buttons & icons
     private View navCreate;
@@ -2270,13 +2284,745 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                 if (descView != null) descView.setText(descs[i]);
 
                 final String storyTitle = titles[i];
+                boolean isSubbed = getPreferences(MODE_PRIVATE).getBoolean("sub_" + storyTitle, false);
+                if (titleView != null) {
+                    titleView.setText(isSubbed ? "⭐ " + storyTitle : storyTitle);
+                }
+                if (descView != null) descView.setText(descs[i]);
+
                 card.setOnClickListener(v -> {
-                    Toast.makeText(this, "Launching Discover story: " + storyTitle, Toast.LENGTH_SHORT).show();
+                    playDiscoverChannel(storyTitle);
                 });
 
                 discoverGrid.addView(card);
             }
         }
+    }
+
+    private void setupProfileOverlay() {
+        View container = findViewById(R.id.profile_overlay_container);
+        View backBtn = findViewById(R.id.profile_btn_back);
+        if (backBtn != null && container != null) {
+            backBtn.setOnClickListener(v -> container.setVisibility(View.GONE));
+        }
+
+        // 1. Privacy Spinner
+        android.widget.Spinner privacySpinner = findViewById(R.id.privacy_spinner);
+        if (privacySpinner != null) {
+            String[] privacyOptions = {"Everyone", "Friends Only", "My Eyes Only"};
+            android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(
+                    this, android.R.layout.simple_spinner_item, privacyOptions);
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            privacySpinner.setAdapter(adapter);
+            
+            // Set default selection
+            if ("EVERYONE".equals(storyPrivacy)) privacySpinner.setSelection(0);
+            else if ("FRIENDS".equals(storyPrivacy)) privacySpinner.setSelection(1);
+            else privacySpinner.setSelection(2);
+
+            privacySpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                @Override
+                public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                    if (position == 0) storyPrivacy = "EVERYONE";
+                    else if (position == 1) storyPrivacy = "FRIENDS";
+                    else storyPrivacy = "PRIVATE";
+                    Toast.makeText(MainActivity.this, "Privacy updated: " + storyPrivacy, Toast.LENGTH_SHORT).show();
+                }
+                @Override
+                public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+            });
+        }
+
+        // 2. Theme Toggle Switch
+        android.widget.Switch themeSwitch = findViewById(R.id.theme_toggle_switch);
+        if (themeSwitch != null && container != null) {
+            themeSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                if (isChecked) {
+                    container.setBackgroundColor(android.graphics.Color.parseColor("#F20B0C10")); // Dark grey
+                } else {
+                    container.setBackgroundColor(android.graphics.Color.parseColor("#F2F2F4F7")); // Snapchat Light grey
+                }
+            });
+        }
+
+        // 3. Add Friend Action
+        Button addBtn = findViewById(R.id.friend_add_btn);
+        EditText inputField = findViewById(R.id.friend_add_input);
+        if (addBtn != null && inputField != null) {
+            addBtn.setOnClickListener(v -> {
+                String name = inputField.getText().toString().trim();
+                if (!name.isEmpty() && !profileFriendsList.contains(name)) {
+                    profileFriendsList.add(name);
+                    inputField.setText("");
+                    Toast.makeText(this, name + " added to Friends! 👥", Toast.LENGTH_SHORT).show();
+                    refreshProfileFriendsList();
+                }
+            });
+        }
+
+        // Populate friends list initially
+        if (profileFriendsList.isEmpty()) {
+            profileFriendsList.add("Alex");
+            profileFriendsList.add("Jessica");
+            profileFriendsList.add("Sam");
+            profileFriendsList.add("Sarah");
+            profileFriendsList.add("David");
+            profileFriendsList.add("Emma");
+        }
+        refreshProfileFriendsList();
+    }
+
+    private void refreshProfileFriendsList() {
+        LinearLayout listContainer = findViewById(R.id.profile_friends_list);
+        if (listContainer != null) {
+            listContainer.removeAllViews();
+            for (String friend : profileFriendsList) {
+                // Inflate a simple dynamic row for each friend
+                RelativeLayout row = new RelativeLayout(this);
+                row.setPadding(0, 16, 0, 16);
+                
+                TextView nameTv = new TextView(this);
+                nameTv.setText("👦 " + friend);
+                nameTv.setTextColor(android.graphics.Color.WHITE);
+                nameTv.setTextSize(16);
+                RelativeLayout.LayoutParams lpName = new RelativeLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                lpName.addRule(RelativeLayout.ALIGN_PARENT_START);
+                lpName.addRule(RelativeLayout.CENTER_VERTICAL);
+                row.addView(nameTv, lpName);
+
+                // Add delete button (X)
+                TextView deleteTv = new TextView(this);
+                deleteTv.setText("❌");
+                deleteTv.setPadding(16, 16, 16, 16);
+                RelativeLayout.LayoutParams lpDel = new RelativeLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                lpDel.addRule(RelativeLayout.ALIGN_PARENT_END);
+                lpDel.addRule(RelativeLayout.CENTER_VERTICAL);
+                deleteTv.setOnClickListener(v -> {
+                    profileFriendsList.remove(friend);
+                    Toast.makeText(this, friend + " removed.", Toast.LENGTH_SHORT).show();
+                    refreshProfileFriendsList();
+                });
+                row.addView(deleteTv, lpDel);
+
+                listContainer.addView(row);
+            }
+        }
+    }
+
+    private void activateLensByName(String name) {
+        int targetPos = -1;
+        for (int i = 0; i < lensItems.size(); i++) {
+            if (lensItems.get(i).name.equalsIgnoreCase(name)) {
+                targetPos = i;
+                break;
+            }
+        }
+        if (targetPos != -1) {
+            currentLensIndex = targetPos;
+            androidx.recyclerview.widget.RecyclerView carousel = findViewById(R.id.lenses_carousel);
+            if (carousel != null) {
+                carousel.scrollToPosition(targetPos);
+                androidx.recyclerview.widget.RecyclerView.Adapter adapter = carousel.getAdapter();
+                if (adapter != null) adapter.notifyDataSetChanged();
+            }
+            updateShutterVisibility();
+            FaceOverlayView overlay = findViewById(R.id.face_overlay);
+            if (overlay != null) {
+                overlay.setActiveLens(name);
+            }
+            Toast.makeText(this, "Activated " + name + " Lens! ✨", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void setupSearchOverlay() {
+        View container = findViewById(R.id.search_overlay_container);
+        View backBtn = findViewById(R.id.search_btn_back);
+        if (backBtn != null && container != null) {
+            backBtn.setOnClickListener(v -> container.setVisibility(View.GONE));
+        }
+
+        android.widget.EditText searchInput = findViewById(R.id.search_input);
+        if (searchInput != null) {
+            searchInput.addTextChangedListener(new android.text.TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    refreshSearchResults(s.toString());
+                }
+                @Override
+                public void afterTextChanged(android.text.Editable s) {}
+            });
+        }
+        
+        refreshSearchResults("");
+    }
+
+    private void refreshSearchResults(String query) {
+        GridLayout lensesGrid = findViewById(R.id.search_lenses_grid);
+        LinearLayout friendsList = findViewById(R.id.search_friends_list);
+        LinearLayout channelsList = findViewById(R.id.search_channels_list);
+        View container = findViewById(R.id.search_overlay_container);
+
+        // 1. Filter Lenses
+        if (lensesGrid != null) {
+            lensesGrid.removeAllViews();
+            for (String lensName : lensesList) {
+                if (query.isEmpty() || lensName.toLowerCase().contains(query.toLowerCase())) {
+                    TextView tv = new TextView(this);
+                    tv.setText("✨ " + lensName);
+                    tv.setTextColor(android.graphics.Color.WHITE);
+                    tv.setBackgroundColor(android.graphics.Color.parseColor("#33FFFFFF"));
+                    tv.setPadding(24, 24, 24, 24);
+                    tv.setGravity(android.view.Gravity.CENTER);
+                    
+                    GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
+                    lp.width = 0;
+                    lp.height = ViewGroup.LayoutParams.WRAP_CONTENT;
+                    lp.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
+                    lp.setMargins(8, 8, 8, 8);
+                    tv.setLayoutParams(lp);
+
+                    tv.setOnClickListener(v -> {
+                        activateLensByName(lensName);
+                        if (container != null) container.setVisibility(View.GONE);
+                    });
+                    lensesGrid.addView(tv);
+                }
+            }
+        }
+
+        // 2. Filter Friends
+        if (friendsList != null) {
+            friendsList.removeAllViews();
+            for (String friend : profileFriendsList) {
+                if (query.isEmpty() || friend.toLowerCase().contains(query.toLowerCase())) {
+                    RelativeLayout row = new RelativeLayout(this);
+                    row.setPadding(12, 16, 12, 16);
+                    row.setBackgroundColor(android.graphics.Color.parseColor("#1AFFFFFF"));
+
+                    TextView nameTv = new TextView(this);
+                    nameTv.setText("👦 " + friend);
+                    nameTv.setTextColor(android.graphics.Color.WHITE);
+                    nameTv.setTextSize(15);
+                    RelativeLayout.LayoutParams lpName = new RelativeLayout.LayoutParams(
+                            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                    lpName.addRule(RelativeLayout.ALIGN_PARENT_START);
+                    lpName.addRule(RelativeLayout.CENTER_VERTICAL);
+                    row.addView(nameTv, lpName);
+
+                    Button chatBtn = new Button(this);
+                    chatBtn.setText("Chat");
+                    chatBtn.setTextSize(11f);
+                    chatBtn.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#FFFC00")));
+                    chatBtn.setTextColor(android.graphics.Color.BLACK);
+                    RelativeLayout.LayoutParams lpBtn = new RelativeLayout.LayoutParams(
+                            ViewGroup.LayoutParams.WRAP_CONTENT, 80);
+                    lpBtn.addRule(RelativeLayout.ALIGN_PARENT_END);
+                    lpBtn.addRule(RelativeLayout.CENTER_VERTICAL);
+                    chatBtn.setOnClickListener(v -> {
+                        Toast.makeText(this, "Opening chat with " + friend, Toast.LENGTH_SHORT).show();
+                        if (container != null) container.setVisibility(View.GONE);
+                        switchTab(2);
+                    });
+                    row.addView(chatBtn, lpBtn);
+
+                    friendsList.addView(row);
+                }
+            }
+        }
+
+        // 3. Filter Channels
+        if (channelsList != null) {
+            channelsList.removeAllViews();
+            String[] channels = {"Daily Memes", "Travel Goals", "Tech Today", "Food Safari"};
+            for (String ch : channels) {
+                if (query.isEmpty() || ch.toLowerCase().contains(query.toLowerCase())) {
+                    RelativeLayout row = new RelativeLayout(this);
+                    row.setPadding(12, 16, 12, 16);
+                    row.setBackgroundColor(android.graphics.Color.parseColor("#15FFFFFF"));
+
+                    TextView chTv = new TextView(this);
+                    chTv.setText("📺 " + ch);
+                    chTv.setTextColor(android.graphics.Color.WHITE);
+                    chTv.setTextSize(15);
+                    RelativeLayout.LayoutParams lpCh = new RelativeLayout.LayoutParams(
+                            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                    lpCh.addRule(RelativeLayout.ALIGN_PARENT_START);
+                    lpCh.addRule(RelativeLayout.CENTER_VERTICAL);
+                    row.addView(chTv, lpCh);
+
+                    Button playBtn = new Button(this);
+                    playBtn.setText("Watch");
+                    playBtn.setTextSize(11f);
+                    playBtn.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#00F2FF")));
+                    playBtn.setTextColor(android.graphics.Color.BLACK);
+                    RelativeLayout.LayoutParams lpBtn = new RelativeLayout.LayoutParams(
+                            ViewGroup.LayoutParams.WRAP_CONTENT, 80);
+                    lpBtn.addRule(RelativeLayout.ALIGN_PARENT_END);
+                    lpBtn.addRule(RelativeLayout.CENTER_VERTICAL);
+                    playBtn.setOnClickListener(v -> {
+                        if (container != null) container.setVisibility(View.GONE);
+                        playDiscoverChannel(ch);
+                    });
+                    row.addView(playBtn, lpBtn);
+
+                    channelsList.addView(row);
+                }
+            }
+        }
+    }
+
+    private void setupMoreToolsDrawer() {
+        View drawer = findViewById(R.id.more_tools_drawer);
+        ImageButton btnPlus = findViewById(R.id.btnPlus);
+        if (btnPlus != null && drawer != null) {
+            btnPlus.setOnClickListener(v -> drawer.setVisibility(View.VISIBLE));
+            drawer.setOnClickListener(v -> drawer.setVisibility(View.GONE));
+            
+            View content = (View) drawer.findViewById(R.id.more_tools_title).getParent();
+            if (content != null) {
+                content.setOnClickListener(v -> {});
+            }
+        }
+
+        // 1. Grid lines toggle
+        android.widget.Switch gridSwitch = findViewById(R.id.tool_toggle_grid);
+        ImageView gridHelper = findViewById(R.id.viewfinder_grid_helper);
+        if (gridSwitch != null && gridHelper != null) {
+            gridSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                if (isChecked) {
+                    drawViewfinderGrid(gridHelper);
+                    gridHelper.setVisibility(View.VISIBLE);
+                } else {
+                    gridHelper.setVisibility(View.GONE);
+                }
+            });
+        }
+
+        // 2. Leveler toggle
+        android.widget.Switch levelerSwitch = findViewById(R.id.tool_toggle_leveler);
+        View levelContainer = findViewById(R.id.level_container);
+        if (levelerSwitch != null && levelContainer != null) {
+            levelContainer.setVisibility(View.GONE);
+            levelerSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                levelContainer.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+            });
+        }
+
+        // 3. Night Mode Boost toggle
+        android.widget.Switch nightSwitch = findViewById(R.id.tool_toggle_night);
+        if (nightSwitch != null) {
+            nightSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                isNightBoostActive = isChecked;
+                applySimulatedNightBoost(isChecked);
+                Toast.makeText(this, isChecked ? "Night Exposure Boost: ON" : "Night Exposure Boost: OFF", Toast.LENGTH_SHORT).show();
+            });
+        }
+
+        // 4. Aspect Ratio selection
+        Button aspectBtn = findViewById(R.id.tool_btn_aspect);
+        if (aspectBtn != null) {
+            aspectBtn.setOnClickListener(v -> {
+                selectedAspectMode = (selectedAspectMode + 1) % 3;
+                String modeLabel = "16:9";
+                if (selectedAspectMode == 1) modeLabel = "4:3";
+                else if (selectedAspectMode == 2) modeLabel = "1:1";
+                aspectBtn.setText(modeLabel);
+                
+                applyAspectRatio(selectedAspectMode);
+            });
+        }
+    }
+
+    private void drawViewfinderGrid(ImageView gridHelper) {
+        gridHelper.post(() -> {
+            int w = gridHelper.getWidth();
+            int h = gridHelper.getHeight();
+            if (w <= 0 || h <= 0) return;
+            
+            android.graphics.Bitmap bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888);
+            Canvas c = new Canvas(bmp);
+            
+            Paint p = new Paint();
+            p.setColor(android.graphics.Color.parseColor("#4DFFFFFF"));
+            p.setStrokeWidth(3f);
+            
+            c.drawLine(w * 0.33f, 0, w * 0.33f, h, p);
+            c.drawLine(w * 0.66f, 0, w * 0.66f, h, p);
+            c.drawLine(0, h * 0.33f, w, h * 0.33f, p);
+            c.drawLine(0, h * 0.66f, w, h * 0.66f, p);
+            
+            gridHelper.setImageBitmap(bmp);
+        });
+    }
+
+    private void applySimulatedNightBoost(boolean active) {
+        if (viewFinder != null) {
+            android.graphics.ColorMatrix matrix = new android.graphics.ColorMatrix();
+            if (active) {
+                matrix.set(new float[] {
+                    1.4f, 0, 0, 0, 30f,
+                    0, 1.4f, 0, 0, 30f,
+                    0, 0, 1.4f, 0, 30f,
+                    0, 0, 0, 1f, 0
+                });
+            }
+            android.graphics.Paint paint = new android.graphics.Paint();
+            paint.setColorFilter(new android.graphics.ColorMatrixColorFilter(matrix));
+            viewFinder.setLayerType(View.LAYER_TYPE_HARDWARE, paint);
+        }
+    }
+
+    private void applyAspectRatio(int mode) {
+        if (viewFinder == null) return;
+        
+        ViewGroup.LayoutParams lp = viewFinder.getLayoutParams();
+        int parentWidth = ((View) viewFinder.getParent()).getWidth();
+        int parentHeight = ((View) viewFinder.getParent()).getHeight();
+        
+        if (mode == 0) {
+            lp.width = parentWidth;
+            lp.height = (int) (parentWidth * (16f / 9f));
+            if (lp.height > parentHeight) {
+                lp.height = parentHeight;
+                lp.width = (int) (parentHeight * (9f / 16f));
+            }
+        } else if (mode == 1) {
+            lp.width = parentWidth;
+            lp.height = (int) (parentWidth * (4f / 3f));
+            if (lp.height > parentHeight) {
+                lp.height = parentHeight;
+                lp.width = (int) (parentHeight * (3f / 4f));
+            }
+        } else {
+            int size = Math.min(parentWidth, parentHeight);
+            lp.width = size;
+            lp.height = size;
+        }
+        
+        viewFinder.setLayoutParams(lp);
+        Toast.makeText(this, "Aspect Ratio adjusted! 📐", Toast.LENGTH_SHORT).show();
+    }
+
+    private void showPreCaptureMusicSelector() {
+        String[] tracks = {"Snap Beats", "Summer Chill", "Dance Vibes", "Lo-Fi Study"};
+        String[] urls = {
+            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"
+        };
+        
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Add Background Music")
+                .setItems(tracks, (dialog, which) -> {
+                    selectedMusicTrack = tracks[which];
+                    Toast.makeText(this, "Music Selected: " + selectedMusicTrack + " 🎵", Toast.LENGTH_SHORT).show();
+                    
+                    ImageButton btnMusic = findViewById(R.id.btnMusic);
+                    if (btnMusic != null) {
+                        btnMusic.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+                                android.graphics.Color.parseColor("#FFFC00")));
+                    }
+                    
+                    if (storyMusicPlayer != null) {
+                        storyMusicPlayer.release();
+                    }
+                    storyMusicPlayer = new android.media.MediaPlayer();
+                    try {
+                        storyMusicPlayer.setDataSource(urls[which]);
+                        storyMusicPlayer.setLooping(true);
+                        storyMusicPlayer.prepareAsync();
+                        storyMusicPlayer.setOnPreparedListener(android.media.MediaPlayer::start);
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error playing music", e);
+                    }
+                })
+                .setNegativeButton("Clear Music", (dialog, which) -> {
+                    selectedMusicTrack = null;
+                    ImageButton btnMusic = findViewById(R.id.btnMusic);
+                    if (btnMusic != null) btnMusic.setBackgroundTintList(null);
+                    if (storyMusicPlayer != null) {
+                        storyMusicPlayer.stop();
+                        storyMusicPlayer.release();
+                        storyMusicPlayer = null;
+                    }
+                    Toast.makeText(this, "Music cleared", Toast.LENGTH_SHORT).show();
+                })
+                .show();
+    }
+
+    private void enterScissorsCropMode() {
+        ScissorsTraceView traceCanvas = findViewById(R.id.scissors_trace_canvas);
+        ImageView previewImage = findViewById(R.id.post_capture_image);
+        if (traceCanvas != null && previewImage != null && capturedUri != null) {
+            traceCanvas.setVisibility(View.VISIBLE);
+            Toast.makeText(this, "Trace around any part of the image to cut a sticker! ✂️", Toast.LENGTH_LONG).show();
+            
+            cameraExecutor.execute(() -> {
+                try {
+                    Bitmap bmp;
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        bmp = android.graphics.ImageDecoder.decodeBitmap(
+                                android.graphics.ImageDecoder.createSource(getContentResolver(), capturedUri),
+                                (decoder, info, source) -> decoder.setMutableRequired(true)
+                        );
+                    } else {
+                        bmp = MediaStore.Images.Media.getBitmap(getContentResolver(), capturedUri);
+                        bmp = bmp.copy(Bitmap.Config.ARGB_8888, true);
+                    }
+                    
+                    final Bitmap finalBmp = bmp;
+                    runOnUiThread(() -> {
+                        traceCanvas.setSourceBitmap(finalBmp);
+                        traceCanvas.setCropListener(cropped -> {
+                            addCroppedStickerToOverlay(cropped);
+                            traceCanvas.setVisibility(View.GONE);
+                        });
+                    });
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to load bitmap for crop", e);
+                }
+            });
+        }
+    }
+
+    private void addCroppedStickerToOverlay(Bitmap sticker) {
+        FrameLayout overlayContainer = findViewById(R.id.post_capture_overlay_container);
+        if (overlayContainer != null) {
+            ImageView stickerImg = new ImageView(this);
+            stickerImg.setImageBitmap(sticker);
+            stickerImg.setTag("sticker");
+            
+            int sizePx = (int) (160 * getResources().getDisplayMetrics().density);
+            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(sizePx, sizePx);
+            lp.gravity = android.view.Gravity.CENTER;
+            stickerImg.setLayoutParams(lp);
+            
+            stickerImg.setOnTouchListener(new MultiTouchListener());
+            overlayContainer.addView(stickerImg);
+            
+            Toast.makeText(this, "Sticker added! Drag to place. ✂️", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    // Discover Playback State
+    private String currentDiscoverPublisher = "";
+    private int currentDiscoverSegmentIndex = 0;
+    private final List<String> discoverSegments = new ArrayList<>();
+    private final Handler discoverProgressHandler = new Handler(Looper.getMainLooper());
+    private Runnable discoverProgressRunnable;
+    private int discoverProgressTick = 0;
+    
+    private void playDiscoverChannel(String publisherName) {
+        currentDiscoverPublisher = publisherName;
+        currentDiscoverSegmentIndex = 0;
+        
+        discoverSegments.clear();
+        if (publisherName.equals("Daily Memes")) {
+            discoverSegments.add("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4");
+            discoverSegments.add("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4");
+        } else if (publisherName.equals("Travel Goals")) {
+            discoverSegments.add("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4");
+            discoverSegments.add("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4");
+            discoverSegments.add("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4");
+        } else if (publisherName.equals("Tech Today")) {
+            discoverSegments.add("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4");
+            discoverSegments.add("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4");
+        } else {
+            discoverSegments.add("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4");
+            discoverSegments.add("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4");
+            discoverSegments.add("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4");
+        }
+        
+        View overlay = findViewById(R.id.discover_player_overlay);
+        if (overlay == null) return;
+        overlay.setVisibility(View.VISIBLE);
+
+        View closeBtn = findViewById(R.id.discover_viewer_close);
+        if (closeBtn != null) {
+            closeBtn.setOnClickListener(v -> closeDiscoverViewer());
+        }
+
+        Button subBtn = findViewById(R.id.discover_viewer_subscribe_btn);
+        if (subBtn != null) {
+            boolean isSubbed = getPreferences(MODE_PRIVATE).getBoolean("sub_" + publisherName, false);
+            subBtn.setText(isSubbed ? "Subscribed ✔️" : "Subscribe");
+            subBtn.setOnClickListener(v -> toggleSubscription(publisherName, subBtn));
+        }
+
+        LinearLayout progressContainer = findViewById(R.id.discover_viewer_progress_container);
+        if (progressContainer != null) {
+            progressContainer.removeAllViews();
+            for (int i = 0; i < discoverSegments.size(); i++) {
+                android.widget.ProgressBar pb = new android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.0f);
+                lp.setMargins(6, 0, 6, 0);
+                pb.setLayoutParams(lp);
+                pb.setMax(100);
+                pb.setProgress(0);
+                pb.setProgressDrawable(ContextCompat.getDrawable(this, android.R.drawable.progress_horizontal));
+                if (pb.getProgressDrawable() != null) {
+                    pb.getProgressDrawable().setColorFilter(android.graphics.Color.WHITE, android.graphics.PorterDuff.Mode.SRC_IN);
+                }
+                progressContainer.addView(pb);
+            }
+        }
+
+        View leftTouch = findViewById(R.id.discover_viewer_left_touch);
+        View rightTouch = findViewById(R.id.discover_viewer_right_touch);
+        if (leftTouch != null) {
+            leftTouch.setOnClickListener(v -> {
+                if (currentDiscoverSegmentIndex > 0) {
+                    playDiscoverSegment(currentDiscoverSegmentIndex - 1);
+                } else {
+                    closeDiscoverViewer();
+                }
+            });
+        }
+        if (rightTouch != null) {
+            rightTouch.setOnClickListener(v -> {
+                if (currentDiscoverSegmentIndex < discoverSegments.size() - 1) {
+                    playDiscoverSegment(currentDiscoverSegmentIndex + 1);
+                } else {
+                    cycleDiscoverChannel(true);
+                }
+            });
+        }
+
+        overlay.setOnTouchListener(new View.OnTouchListener() {
+            private float initialY = 0;
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        initialY = event.getY();
+                        return true;
+                    case MotionEvent.ACTION_UP:
+                        float diffY = event.getY() - initialY;
+                        if (Math.abs(diffY) > 150) {
+                            cycleDiscoverChannel(diffY < 0);
+                            return true;
+                        }
+                        break;
+                }
+                return false;
+            }
+        });
+
+        playDiscoverSegment(0);
+    }
+
+    private void playDiscoverSegment(int index) {
+        if (index < 0 || index >= discoverSegments.size()) return;
+        currentDiscoverSegmentIndex = index;
+        
+        String url = discoverSegments.get(index);
+        discoverProgressHandler.removeCallbacks(discoverProgressRunnable);
+
+        TextView pubTv = findViewById(R.id.discover_viewer_publisher);
+        TextView titleTv = findViewById(R.id.discover_viewer_title);
+        if (pubTv != null) pubTv.setText(currentDiscoverPublisher);
+        if (titleTv != null) titleTv.setText("Segment " + (index + 1) + " of " + discoverSegments.size());
+
+        LinearLayout progressContainer = findViewById(R.id.discover_viewer_progress_container);
+        if (progressContainer != null) {
+            for (int i = 0; i < progressContainer.getChildCount(); i++) {
+                android.widget.ProgressBar pb = (android.widget.ProgressBar) progressContainer.getChildAt(i);
+                if (i < index) pb.setProgress(100);
+                else if (i > index) pb.setProgress(0);
+                else pb.setProgress(0);
+            }
+        }
+
+        ImageView img = findViewById(R.id.discover_viewer_image);
+        VideoView vid = findViewById(R.id.discover_viewer_video);
+        if (img != null && vid != null) {
+            img.setVisibility(View.GONE);
+            vid.setVisibility(View.VISIBLE);
+            vid.setVideoPath(url);
+            vid.setOnPreparedListener(mp -> {
+                vid.start();
+                int dur = mp.getDuration();
+                startDiscoverProgress(dur > 0 ? dur : 5000);
+            });
+        }
+    }
+
+    private void startDiscoverProgress(int durationMs) {
+        discoverProgressTick = 0;
+        int interval = durationMs / 50;
+        discoverProgressRunnable = new Runnable() {
+            @Override
+            public void run() {
+                discoverProgressTick++;
+                LinearLayout progressContainer = findViewById(R.id.discover_viewer_progress_container);
+                if (progressContainer != null && currentDiscoverSegmentIndex < progressContainer.getChildCount()) {
+                    android.widget.ProgressBar pb = (android.widget.ProgressBar) progressContainer.getChildAt(currentDiscoverSegmentIndex);
+                    if (pb != null) pb.setProgress(discoverProgressTick * 2);
+                }
+                
+                if (discoverProgressTick >= 50) {
+                    if (currentDiscoverSegmentIndex < discoverSegments.size() - 1) {
+                        playDiscoverSegment(currentDiscoverSegmentIndex + 1);
+                    } else {
+                        cycleDiscoverChannel(true);
+                    }
+                } else {
+                    discoverProgressHandler.postDelayed(this, interval);
+                }
+            }
+        };
+        discoverProgressHandler.postDelayed(discoverProgressRunnable, interval);
+    }
+
+    private void cycleDiscoverChannel(boolean forward) {
+        String[] channels = {"Daily Memes", "Travel Goals", "Tech Today", "Food Safari"};
+        int curIdx = 0;
+        for (int i = 0; i < channels.length; i++) {
+            if (channels[i].equalsIgnoreCase(currentDiscoverPublisher)) {
+                curIdx = i;
+                break;
+            }
+        }
+        if (forward) {
+            curIdx = (curIdx + 1) % channels.length;
+        } else {
+            curIdx = (curIdx - 1 + channels.length) % channels.length;
+        }
+        playDiscoverChannel(channels[curIdx]);
+    }
+
+    private void toggleSubscription(String publisherName, Button btn) {
+        android.content.SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+        boolean isSubbed = prefs.getBoolean("sub_" + publisherName, false);
+        isSubbed = !isSubbed;
+        prefs.edit().putBoolean("sub_" + publisherName, isSubbed).apply();
+        
+        btn.setText(isSubbed ? "Subscribed ✔️" : "Subscribe");
+        
+        TextView animText = findViewById(R.id.discover_viewer_sub_anim);
+        if (animText != null && isSubbed) {
+            animText.setVisibility(View.VISIBLE);
+            animText.setAlpha(1.0f);
+            animText.setScaleX(1.0f);
+            animText.setScaleY(1.0f);
+            animText.animate().alpha(0.0f).scaleX(1.4f).scaleY(1.4f).setDuration(1200).withEndAction(() -> animText.setVisibility(View.GONE));
+        }
+        
+        setupStoriesSystem();
+    }
+
+    private void closeDiscoverViewer() {
+        discoverProgressHandler.removeCallbacks(discoverProgressRunnable);
+        VideoView vid = findViewById(R.id.discover_viewer_video);
+        if (vid != null) vid.stopPlayback();
+        
+        View overlay = findViewById(R.id.discover_player_overlay);
+        if (overlay != null) overlay.setVisibility(View.GONE);
     }
 
     private void setupSpotlightSystem() {
@@ -2296,26 +3042,111 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         ImageButton btnSnapTool = findViewById(R.id.btnSnapTool);
         ImageButton btnPlus = findViewById(R.id.btnPlus);
 
-        if (btnScissors != null) btnScissors.setOnClickListener(v -> Toast.makeText(this, "Edit with Scissors", Toast.LENGTH_SHORT).show());
-        if (btnFrames != null) btnFrames.setOnClickListener(v -> Toast.makeText(this, "Multi-Snap Frames", Toast.LENGTH_SHORT).show());
-        if (btnMusic != null) btnMusic.setOnClickListener(v -> Toast.makeText(this, "Add Music", Toast.LENGTH_SHORT).show());
-        if (btnSnapTool != null) btnSnapTool.setOnClickListener(v -> Toast.makeText(this, "Quick Snap", Toast.LENGTH_SHORT).show());
-        if (btnPlus != null) btnPlus.setOnClickListener(v -> Toast.makeText(this, "More Tools", Toast.LENGTH_SHORT).show());
+        if (btnScissors != null) {
+            btnScissors.setOnClickListener(v -> {
+                // If we have a captured preview active, enter Scissors Crop Trace Mode
+                View postCapture = findViewById(R.id.post_capture_layer);
+                if (postCapture != null && postCapture.getVisibility() == View.VISIBLE) {
+                    enterScissorsCropMode();
+                } else {
+                    Toast.makeText(this, "Capture a snap first, then click Scissors to cut stickers! ✂️", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+        
+        if (btnFrames != null) {
+            btnFrames.setOnClickListener(v -> {
+                isMultiSnapActive = !isMultiSnapActive;
+                if (isMultiSnapActive) {
+                    btnFrames.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+                            android.graphics.Color.parseColor("#00F2FF"))); // Neon Blue
+                    Toast.makeText(this, "Multi-Snap Frames: ACTIVE 🎞️", Toast.LENGTH_SHORT).show();
+                    
+                    // Turn off burst if active
+                    if (isBurstModeActive) {
+                        isBurstModeActive = false;
+                        if (btnSnapTool != null) btnSnapTool.setBackgroundTintList(null);
+                    }
+                } else {
+                    btnFrames.setBackgroundTintList(null);
+                    Toast.makeText(this, "Multi-Snap Frames: INACTIVE", Toast.LENGTH_SHORT).show();
+                    
+                    // Reset multi-snap lists
+                    View container = findViewById(R.id.multi_snap_filmstrip_container);
+                    if (container != null) container.setVisibility(View.GONE);
+                    LinearLayout filmstrip = findViewById(R.id.multi_snap_filmstrip);
+                    if (filmstrip != null) filmstrip.removeAllViews();
+                    multiSnapCapturedUris.clear();
+                }
+            });
+        }
+        
+        if (btnMusic != null) {
+            btnMusic.setOnClickListener(v -> {
+                showPreCaptureMusicSelector();
+            });
+        }
+        
+        if (btnSnapTool != null) {
+            btnSnapTool.setOnClickListener(v -> {
+                isBurstModeActive = !isBurstModeActive;
+                if (isBurstModeActive) {
+                    btnSnapTool.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+                            android.graphics.Color.parseColor("#FFFC00"))); // Snapchat Yellow
+                    Toast.makeText(this, "Burst Quick Snap: ACTIVE ⚡", Toast.LENGTH_SHORT).show();
+                    
+                    // Turn off multi-snap if active
+                    if (isMultiSnapActive) {
+                        isMultiSnapActive = false;
+                        if (btnFrames != null) btnFrames.setBackgroundTintList(null);
+                    }
+                } else {
+                    btnSnapTool.setBackgroundTintList(null);
+                    Toast.makeText(this, "Burst Quick Snap: INACTIVE", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+        
+        if (btnPlus != null) {
+            btnPlus.setOnClickListener(v -> {
+                View drawer = findViewById(R.id.more_tools_drawer);
+                if (drawer != null) drawer.setVisibility(View.VISIBLE);
+            });
+        }
 
         View profileBtn = findViewById(R.id.btn_profile);
-        if (profileBtn != null) profileBtn.setOnClickListener(v -> Toast.makeText(this, "Profile: @snaptaker", Toast.LENGTH_SHORT).show());
+        if (profileBtn != null) {
+            profileBtn.setOnClickListener(v -> {
+                View overlay = findViewById(R.id.profile_overlay_container);
+                if (overlay != null) overlay.setVisibility(View.VISIBLE);
+            });
+        }
 
         View searchBtn = findViewById(R.id.btn_search);
-        if (searchBtn != null) searchBtn.setOnClickListener(v -> Toast.makeText(this, "Search: Find friends & lenses", Toast.LENGTH_SHORT).show());
+        if (searchBtn != null) {
+            searchBtn.setOnClickListener(v -> {
+                View overlay = findViewById(R.id.search_overlay_container);
+                if (overlay != null) overlay.setVisibility(View.VISIBLE);
+            });
+        }
 
         View addFriendBtn = findViewById(R.id.btn_add_friend);
-        if (addFriendBtn != null) addFriendBtn.setOnClickListener(v -> Toast.makeText(this, "Add Friends: Start snapping!", Toast.LENGTH_SHORT).show());
+        if (addFriendBtn != null) addFriendBtn.setOnClickListener(v -> {
+            View overlay = findViewById(R.id.profile_overlay_container);
+            if (overlay != null) overlay.setVisibility(View.VISIBLE);
+        });
         
         SeekBar zoomSlider = findViewById(R.id.zoom_slider);
         setupZoomAndFocus(zoomSlider);
         setupShutterTouchGestures(captureButton);
         setupPostCaptureControls();
         setupMemoriesControls();
+        
+        // Setup new overlays
+        setupProfileOverlay();
+        setupSearchOverlay();
+        setupMoreToolsDrawer();
+        
         loadLastSavedThumbnail();
     }
 
@@ -3831,11 +4662,18 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
     }
 
     private void takePhoto() {
-        if (timerSeconds > 0) {
-            Toast.makeText(this, "Timer: " + timerSeconds + "s", Toast.LENGTH_SHORT).show();
-            new Handler(Looper.getMainLooper()).postDelayed(this::executePhotoCapture, timerSeconds * 1000L);
+        if (isBurstModeActive) {
+            Toast.makeText(this, "Firing Burst Mode Snap! ⚡", Toast.LENGTH_SHORT).show();
+            new Handler(Looper.getMainLooper()).postDelayed(this::executePhotoCapture, 0);
+            new Handler(Looper.getMainLooper()).postDelayed(this::executePhotoCapture, 400);
+            new Handler(Looper.getMainLooper()).postDelayed(this::executePhotoCapture, 800);
         } else {
-            executePhotoCapture();
+            if (timerSeconds > 0) {
+                Toast.makeText(this, "Timer: " + timerSeconds + "s", Toast.LENGTH_SHORT).show();
+                new Handler(Looper.getMainLooper()).postDelayed(this::executePhotoCapture, timerSeconds * 1000L);
+            } else {
+                executePhotoCapture();
+            }
         }
     }
 
@@ -3874,12 +4712,140 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             public void onImageSaved(@NonNull ImageCapture.OutputFileResults results) {
                 Uri savedUri = results.getSavedUri();
                 if (savedUri != null) {
-                    launchPostCapturePreview(savedUri, true);
+                    runOnUiThread(() -> {
+                        if (isBurstModeActive || isMultiSnapActive) {
+                            addMultiSnapFrame(savedUri);
+                        } else {
+                            launchPostCapturePreview(savedUri, true);
+                        }
+                    });
                 }
             }
             @Override
             public void onError(@NonNull ImageCaptureException exception) {
                 Log.e(TAG, "Photo capture failed", exception);
+            }
+        });
+    }
+
+    private void addMultiSnapFrame(Uri uri) {
+        multiSnapCapturedUris.add(uri);
+        
+        View container = findViewById(R.id.multi_snap_filmstrip_container);
+        LinearLayout filmstrip = findViewById(R.id.multi_snap_filmstrip);
+        if (container != null && filmstrip != null) {
+            container.setVisibility(View.VISIBLE);
+            
+            // Create a small card for the thumbnail
+            androidx.cardview.widget.CardView card = new androidx.cardview.widget.CardView(this);
+            card.setRadius(12f);
+            card.setCardElevation(4f);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(120, 120);
+            lp.setMargins(10, 0, 10, 0);
+            card.setLayoutParams(lp);
+            
+            ImageView img = new ImageView(this);
+            img.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            img.setImageURI(uri);
+            card.addView(img);
+            
+            img.setOnClickListener(v -> {
+                container.setVisibility(View.GONE);
+                filmstrip.removeAllViews();
+                multiSnapCapturedUris.clear();
+                launchPostCapturePreview(uri, true);
+            });
+            
+            filmstrip.addView(card);
+            
+            updateAssembleCollageButton();
+        }
+    }
+
+    private void updateAssembleCollageButton() {
+        LinearLayout filmstrip = findViewById(R.id.multi_snap_filmstrip);
+        if (filmstrip == null) return;
+        
+        View oldBtn = filmstrip.findViewWithTag("btn_assemble_collage");
+        if (oldBtn != null) filmstrip.removeView(oldBtn);
+        
+        if (multiSnapCapturedUris.size() >= 2) {
+            Button btn = new Button(this);
+            btn.setTag("btn_assemble_collage");
+            btn.setText("Assemble\nCollage 🎞️");
+            btn.setTextSize(10f);
+            btn.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+                    android.graphics.Color.parseColor("#00F2FF"))); // Neon Blue
+            btn.setTextColor(android.graphics.Color.BLACK);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, 120);
+            lp.setMargins(16, 0, 10, 0);
+            btn.setLayoutParams(lp);
+            
+            btn.setOnClickListener(v -> {
+                assembleCollageAndOpenEditor();
+            });
+            filmstrip.addView(btn);
+        }
+    }
+
+    private void assembleCollageAndOpenEditor() {
+        if (multiSnapCapturedUris.size() < 2) return;
+        
+        Toast.makeText(this, "Stitching collage...", Toast.LENGTH_SHORT).show();
+        
+        cameraExecutor.execute(() -> {
+            try {
+                List<Bitmap> bitmaps = new ArrayList<>();
+                for (Uri uri : multiSnapCapturedUris) {
+                    Bitmap bmp;
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        bmp = android.graphics.ImageDecoder.decodeBitmap(
+                                android.graphics.ImageDecoder.createSource(getContentResolver(), uri),
+                                (decoder, info, source) -> decoder.setMutableRequired(true)
+                        );
+                    } else {
+                        bmp = MediaStore.Images.Media.getBitmap(getContentResolver(), uri);
+                        bmp = bmp.copy(Bitmap.Config.ARGB_8888, true);
+                    }
+                    bitmaps.add(bmp);
+                }
+                
+                int count = bitmaps.size();
+                int w = bitmaps.get(0).getWidth();
+                int h = bitmaps.get(0).getHeight();
+                
+                Bitmap collage;
+                if (count == 2) {
+                    collage = Bitmap.createBitmap(w * 2, h, Bitmap.Config.ARGB_8888);
+                    Canvas canvas = new Canvas(collage);
+                    canvas.drawBitmap(bitmaps.get(0), 0, 0, null);
+                    canvas.drawBitmap(bitmaps.get(1), w, 0, null);
+                } else {
+                    collage = Bitmap.createBitmap(w * 2, h * 2, Bitmap.Config.ARGB_8888);
+                    Canvas canvas = new Canvas(collage);
+                    canvas.drawBitmap(bitmaps.get(0), 0, 0, null);
+                    canvas.drawBitmap(bitmaps.get(1), w, 0, null);
+                    canvas.drawBitmap(bitmaps.get(2 % count), 0, h, null);
+                    canvas.drawBitmap(bitmaps.get(3 % count), w, h, null);
+                }
+                
+                Uri collageUri = saveBitmapToGallery(collage);
+                
+                runOnUiThread(() -> {
+                    View container = findViewById(R.id.multi_snap_filmstrip_container);
+                    if (container != null) container.setVisibility(View.GONE);
+                    LinearLayout filmstrip = findViewById(R.id.multi_snap_filmstrip);
+                    if (filmstrip != null) filmstrip.removeAllViews();
+                    multiSnapCapturedUris.clear();
+                    
+                    if (collageUri != null) {
+                        launchPostCapturePreview(collageUri, true);
+                    }
+                });
+                
+            } catch (Exception e) {
+                Log.e(TAG, "Collage assembly failed", e);
             }
         });
     }
