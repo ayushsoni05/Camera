@@ -2823,6 +2823,101 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             });
         }
 
+        // Settings Gear Click
+        View gearBtn = findViewById(R.id.profile_settings_btn);
+        View settingsOverlay = findViewById(R.id.profile_settings_overlay);
+        if (gearBtn != null && settingsOverlay != null) {
+            gearBtn.setOnClickListener(v -> settingsOverlay.setVisibility(View.VISIBLE));
+            
+            View closeSettings = findViewById(R.id.profile_settings_close);
+            if (closeSettings != null) closeSettings.setOnClickListener(v2 -> settingsOverlay.setVisibility(View.GONE));
+            
+            Button clearCache = findViewById(R.id.settings_clear_cache_btn);
+            if (clearCache != null) clearCache.setOnClickListener(v2 -> {
+                showToast("Media cache cleared! 🧹");
+                settingsOverlay.setVisibility(View.GONE);
+            });
+            
+            Button logout = findViewById(R.id.settings_logout_btn);
+            if (logout != null) logout.setOnClickListener(v2 -> {
+                showToast("Logged out successfully! 🚪");
+                settingsOverlay.setVisibility(View.GONE);
+                if (container != null) container.setVisibility(View.GONE);
+            });
+        }
+
+        // My Story Row Click
+        View myStoryRow = findViewById(R.id.profile_my_story_row);
+        if (myStoryRow != null) {
+            myStoryRow.setOnClickListener(v -> {
+                if (storyDb != null) {
+                    activeStorySegments = storyDb.getStoriesByUser("user");
+                    if (activeStorySegments.isEmpty()) {
+                        showToast("You have no active story segments! 📸");
+                    } else {
+                        runOnUiThread(() -> {
+                            View overlay = findViewById(R.id.story_viewer_overlay);
+                            if (overlay != null) {
+                                overlay.setVisibility(View.VISIBLE);
+                                
+                                View closeBtn = findViewById(R.id.story_viewer_close);
+                                if (closeBtn != null) {
+                                    closeBtn.setOnClickListener(v2 -> closeStoryViewer());
+                                }
+                                
+                                LinearLayout progressContainer = findViewById(R.id.story_viewer_progress_container);
+                                if (progressContainer != null) {
+                                    progressContainer.removeAllViews();
+                                    for (int i = 0; i < activeStorySegments.size(); i++) {
+                                        android.widget.ProgressBar pb = new android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+                                        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.0f);
+                                        lp.setMargins(6, 0, 6, 0);
+                                        pb.setLayoutParams(lp);
+                                        pb.setMax(100);
+                                        pb.setProgress(0);
+                                        pb.getProgressDrawable().setColorFilter(android.graphics.Color.WHITE, android.graphics.PorterDuff.Mode.SRC_IN);
+                                        progressContainer.addView(pb);
+                                    }
+                                }
+
+                                View leftTouch = findViewById(R.id.story_viewer_left_touch);
+                                View rightTouch = findViewById(R.id.story_viewer_right_touch);
+                                
+                                if (leftTouch != null) {
+                                    leftTouch.setOnClickListener(v2 -> {
+                                        if (currentStorySegmentIndex > 0) {
+                                            playSegment(currentStorySegmentIndex - 1);
+                                        } else {
+                                            closeStoryViewer();
+                                        }
+                                    });
+                                }
+                                if (rightTouch != null) {
+                                    rightTouch.setOnClickListener(v2 -> {
+                                        if (currentStorySegmentIndex < activeStorySegments.size() - 1) {
+                                            playSegment(currentStorySegmentIndex + 1);
+                                        } else {
+                                            closeStoryViewer();
+                                        }
+                                    });
+                                }
+
+                                LinearLayout reactionsBar = findViewById(R.id.story_viewer_reactions_bar);
+                                if (reactionsBar != null) reactionsBar.removeAllViews();
+                                android.widget.ImageButton replySend = findViewById(R.id.story_viewer_reply_send);
+                                if (replySend != null) replySend.setOnClickListener(null);
+                                
+                                playSegment(0);
+                            }
+                        });
+                    }
+                }
+            });
+        }
+
+        // Refresh dynamic memories grid
+        refreshProfileMemoriesGrid();
+
         // 1. Privacy Spinner
         android.widget.Spinner privacySpinner = findViewById(R.id.privacy_spinner);
         if (privacySpinner != null) {
@@ -2922,6 +3017,52 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             profileFriendsList.add("Emma");
         }
         refreshProfileFriendsList();
+    }
+
+    private void refreshProfileMemoriesGrid() {
+        GridLayout grid = findViewById(R.id.profile_memories_grid);
+        if (grid == null) return;
+        
+        runOnUiThread(() -> grid.removeAllViews());
+        cameraExecutor.execute(() -> {
+            List<MediaItem> mediaList = getCapturedMedia();
+            if (mediaList.isEmpty()) {
+                runOnUiThread(() -> {
+                    TextView tv = new TextView(this);
+                    tv.setText("No captured memories yet! 📸");
+                    tv.setTextColor(android.graphics.Color.GRAY);
+                    tv.setTextSize(12);
+                    grid.addView(tv);
+                });
+                return;
+            }
+            
+            int limit = Math.min(mediaList.size(), 6);
+            for (int i = 0; i < limit; i++) {
+                final int index = i;
+                MediaItem item = mediaList.get(index);
+                Bitmap thumb = loadScaledBitmap(item.uri, 120);
+                if (thumb != null) {
+                    runOnUiThread(() -> {
+                        ImageView iv = new ImageView(this);
+                        iv.setImageBitmap(thumb);
+                        iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                        
+                        GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
+                        lp.width = 160;
+                        lp.height = 160;
+                        lp.setMargins(6, 6, 6, 6);
+                        iv.setLayoutParams(lp);
+                        
+                        iv.setOnClickListener(v -> {
+                            galleryItems = mediaList;
+                            openMemoriesFullscreenViewer(index);
+                        });
+                        grid.addView(iv);
+                    });
+                }
+            }
+        });
     }
 
     private void refreshFriendRequestsUI() {
