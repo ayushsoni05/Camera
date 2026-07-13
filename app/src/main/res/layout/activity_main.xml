@@ -2124,6 +2124,7 @@
 
                     <!-- Snapchat Yellow Snapcode Card -->
                     <androidx.cardview.widget.CardView
+                        android:id="@+id/profile_snapcode_card"
                         android:layout_width="140dp"
                         android:layout_height="140dp"
                         app:cardCornerRadius="20dp"
@@ -2132,6 +2133,7 @@
                         android:layout_marginBottom="16dp">
                         
                         <ImageView
+                            android:id="@+id/profile_snapcode_image"
                             android:layout_width="96dp"
                             android:layout_height="96dp"
                             android:layout_gravity="center"
@@ -2212,8 +2214,47 @@
                                     android:thumbTint="@color/snap_yellow"
                                     android:trackTint="#A0FFFFFF" />
                             </RelativeLayout>
+
+                            <!-- Sync Contacts Button -->
+                            <Button
+                                android:id="@+id/profile_sync_contacts_btn"
+                                android:layout_width="match_parent"
+                                android:layout_height="44dp"
+                                android:layout_marginTop="16dp"
+                                android:backgroundTint="@color/snap_yellow"
+                                android:textColor="@color/black"
+                                android:text="Sync Device Contacts 📞"
+                                android:textStyle="bold"
+                                android:textAllCaps="false" />
                         </LinearLayout>
                     </androidx.cardview.widget.CardView>
+
+                    <!-- Incoming Requests Section -->
+                    <LinearLayout
+                        android:id="@+id/profile_requests_layout"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginBottom="24dp"
+                        android:gravity="start">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="FRIEND REQUESTS"
+                            android:textColor="#B0FFFFFF"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            android:layout_marginBottom="12dp" />
+
+                        <LinearLayout
+                            android:id="@+id/profile_friend_requests_container"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical">
+                            <!-- Requests added dynamically -->
+                        </LinearLayout>
+                    </LinearLayout>
 
                     <!-- Friends Manager Section -->
                     <TextView

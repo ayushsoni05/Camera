@@ -2767,11 +2767,60 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         }
     }
 
+    private final List<String> blockedUsersList = new ArrayList<>();
+    private final List<String> pendingFriendRequests = new ArrayList<>();
+
+    private Bitmap generateSnapcode(String username) {
+        Bitmap bmp = Bitmap.createBitmap(300, 300, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bmp);
+        canvas.drawColor(android.graphics.Color.parseColor("#FFFC00"));
+        
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paint.setColor(android.graphics.Color.BLACK);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(6f);
+        canvas.drawRoundRect(20, 20, 280, 280, 40, 40, paint);
+        
+        paint.setStyle(Paint.Style.FILL);
+        int seed = username.hashCode();
+        java.util.Random rand = new java.util.Random(seed);
+        for (int x = 40; x <= 260; x += 15) {
+            for (int y = 40; y <= 260; y += 15) {
+                if (x > 100 && x < 200 && y > 100 && y < 200) continue;
+                if (rand.nextBoolean()) {
+                    canvas.drawCircle(x, y, 4f, paint);
+                }
+            }
+        }
+        
+        paint.setTextSize(64);
+        paint.setTextAlign(Paint.Align.CENTER);
+        Paint.FontMetrics fm = paint.getFontMetrics();
+        float yOffset = -(fm.ascent + fm.descent) / 2;
+        canvas.drawText("👻", 150f, 150f + yOffset, paint);
+        
+        return bmp;
+    }
+
     private void setupProfileOverlay() {
         View container = findViewById(R.id.profile_overlay_container);
         View backBtn = findViewById(R.id.profile_btn_back);
         if (backBtn != null && container != null) {
             backBtn.setOnClickListener(v -> container.setVisibility(View.GONE));
+        }
+
+        // Initialize snapcode
+        ImageView snapcodeImg = findViewById(R.id.profile_snapcode_image);
+        View snapcodeCard = findViewById(R.id.profile_snapcode_card);
+        if (snapcodeImg != null && snapcodeCard != null) {
+            Bitmap sc = generateSnapcode("snaptaker");
+            snapcodeImg.setImageBitmap(sc);
+            snapcodeCard.setOnClickListener(v -> {
+                SnapAlertHelper.showDialog(this, "Your Snapcode 👻", 
+                    "Scan this code to add @snaptaker on Snaptake!", 
+                    "Share Code", () -> showToast("Snapcode shared! 📲"), 
+                    "Close", null);
+            });
         }
 
         // 1. Privacy Spinner
@@ -2783,7 +2832,6 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
             privacySpinner.setAdapter(adapter);
             
-            // Set default selection
             if ("EVERYONE".equals(storyPrivacy)) privacySpinner.setSelection(0);
             else if ("FRIENDS".equals(storyPrivacy)) privacySpinner.setSelection(1);
             else privacySpinner.setSelection(2);
@@ -2813,7 +2861,43 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             });
         }
 
-        // 3. Add Friend Action
+        // 3. Contacts Sync
+        Button syncBtn = findViewById(R.id.profile_sync_contacts_btn);
+        if (syncBtn != null) {
+            syncBtn.setOnClickListener(v -> {
+                SnapAlertHelper.showDialog(this, "Sync Contacts? 📞", 
+                    "Snaptake will scan your address book to find friends nearby.", 
+                    "Sync", () -> {
+                        showToast("Syncing contacts...");
+                        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                            SnapAlertHelper.showDialog(this, "Contacts Found! 👥", 
+                                "Found: 'John Doe 👦' and 'Alice Smith 👧' on Snaptake!", 
+                                "Add John", () -> {
+                                    if (!profileFriendsList.contains("John Doe")) {
+                                        profileFriendsList.add("John Doe");
+                                        refreshProfileFriendsList();
+                                    }
+                                    showToast("John Doe added!");
+                                }, "Add Alice", () -> {
+                                    if (!profileFriendsList.contains("Alice Smith")) {
+                                        profileFriendsList.add("Alice Smith");
+                                        refreshProfileFriendsList();
+                                    }
+                                    showToast("Alice Smith added!");
+                                });
+                        }, 1500);
+                    }, "Cancel", null);
+            });
+        }
+
+        // 4. Friend Requests
+        if (pendingFriendRequests.isEmpty()) {
+            pendingFriendRequests.add("Cody Ninja 👻");
+            pendingFriendRequests.add("Adventure Girl 🎒");
+        }
+        refreshFriendRequestsUI();
+
+        // 5. Add Friend Action
         Button addBtn = findViewById(R.id.friend_add_btn);
         EditText inputField = findViewById(R.id.friend_add_input);
         if (addBtn != null && inputField != null) {
@@ -2840,17 +2924,86 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         refreshProfileFriendsList();
     }
 
+    private void refreshFriendRequestsUI() {
+        LinearLayout container = findViewById(R.id.profile_friend_requests_container);
+        if (container == null) return;
+        container.removeAllViews();
+
+        for (String req : pendingFriendRequests) {
+            RelativeLayout row = new RelativeLayout(this);
+            row.setPadding(0, 12, 0, 12);
+
+            TextView nameTv = new TextView(this);
+            nameTv.setText(req);
+            nameTv.setTextColor(android.graphics.Color.WHITE);
+            nameTv.setTextSize(15);
+            RelativeLayout.LayoutParams lpName = new RelativeLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            lpName.addRule(RelativeLayout.ALIGN_PARENT_START);
+            lpName.addRule(RelativeLayout.CENTER_VERTICAL);
+            row.addView(nameTv, lpName);
+
+            LinearLayout btnLayout = new LinearLayout(this);
+            btnLayout.setOrientation(LinearLayout.HORIZONTAL);
+            RelativeLayout.LayoutParams lpBtns = new RelativeLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            lpBtns.addRule(RelativeLayout.ALIGN_PARENT_END);
+            lpBtns.addRule(RelativeLayout.CENTER_VERTICAL);
+
+            Button accept = new Button(this);
+            accept.setText("Accept");
+            accept.setTextSize(10);
+            accept.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#FFFC00")));
+            accept.setTextColor(android.graphics.Color.BLACK);
+            accept.setOnClickListener(v -> {
+                pendingFriendRequests.remove(req);
+                String cleanName = req.replaceAll("[👻🎒\\s]", "");
+                if (!profileFriendsList.contains(cleanName)) {
+                    profileFriendsList.add(cleanName);
+                }
+                showToast("Accepted " + cleanName + "!");
+                refreshFriendRequestsUI();
+                refreshProfileFriendsList();
+            });
+
+            Button ignore = new Button(this);
+            ignore.setText("Ignore");
+            ignore.setTextSize(10);
+            ignore.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#33FFFFFF")));
+            ignore.setTextColor(android.graphics.Color.WHITE);
+            LinearLayout.LayoutParams lpIgnore = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            lpIgnore.setMarginStart(8);
+            ignore.setLayoutParams(lpIgnore);
+            ignore.setOnClickListener(v -> {
+                pendingFriendRequests.remove(req);
+                showToast("Ignored Request");
+                refreshFriendRequestsUI();
+            });
+
+            btnLayout.addView(accept);
+            btnLayout.addView(ignore);
+            row.addView(btnLayout, lpBtns);
+
+            container.addView(row);
+        }
+    }
+
     private void refreshProfileFriendsList() {
         LinearLayout listContainer = findViewById(R.id.profile_friends_list);
         if (listContainer != null) {
             listContainer.removeAllViews();
             for (String friend : profileFriendsList) {
-                // Inflate a simple dynamic row for each friend
+                if (blockedUsersList.contains(friend)) continue;
+
                 RelativeLayout row = new RelativeLayout(this);
                 row.setPadding(0, 16, 0, 16);
                 
                 TextView nameTv = new TextView(this);
-                nameTv.setText("👦 " + friend);
+                String tag = "";
+                if ("Alex".equals(friend)) tag = " (Best Friend 💛)";
+                else if ("Jessica".equals(friend)) tag = " (Mutual Friend 😊)";
+                
+                nameTv.setText("👦 " + friend + tag);
                 nameTv.setTextColor(android.graphics.Color.WHITE);
                 nameTv.setTextSize(16);
                 RelativeLayout.LayoutParams lpName = new RelativeLayout.LayoutParams(
@@ -2867,13 +3020,20 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                         ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
                 lpDel.addRule(RelativeLayout.ALIGN_PARENT_END);
                 lpDel.addRule(RelativeLayout.CENTER_VERTICAL);
+                
                 deleteTv.setOnClickListener(v -> {
-                    SnapAlertHelper.showDialog(this, "Remove Friend?", "Are you sure you want to remove " + friend + "?", 
-                            "Remove", () -> {
+                    SnapAlertHelper.showDialog(this, "Manage " + friend + "? 👥", 
+                            "Do you want to remove this friend or block them completely?", 
+                            "Remove Friend", () -> {
                                 profileFriendsList.remove(friend);
                                 Toast.makeText(this, friend + " removed.", Toast.LENGTH_SHORT).show();
                                 refreshProfileFriendsList();
-                            }, "Cancel", null);
+                            }, "Block User", () -> {
+                                profileFriendsList.remove(friend);
+                                blockedUsersList.add(friend);
+                                Toast.makeText(this, friend + " blocked completely.", Toast.LENGTH_SHORT).show();
+                                refreshProfileFriendsList();
+                            });
                 });
                 row.addView(deleteTv, lpDel);
 
@@ -2969,6 +3129,7 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         if (friendsList != null) {
             friendsList.removeAllViews();
             for (String friend : profileFriendsList) {
+                if (blockedUsersList.contains(friend)) continue;
                 if (query.isEmpty() || friend.toLowerCase().contains(query.toLowerCase())) {
                     RelativeLayout row = new RelativeLayout(this);
                     row.setPadding(12, 16, 12, 16);
