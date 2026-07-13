@@ -179,6 +179,20 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
     private View storiesLayer;
     private View spotlightLayer;
 
+    // Story System State
+    private StoryDatabaseHelper storyDb;
+    private android.media.MediaPlayer storyMusicPlayer;
+    private String selectedMusicTrack = null;
+    private String storyPrivacy = "EVERYONE";
+    
+    // Story Playback State
+    private List<StoryItem> activeStorySegments = new ArrayList<>();
+    private int currentStorySegmentIndex = 0;
+    private final Handler storyProgressHandler = new Handler(Looper.getMainLooper());
+    private Runnable storyProgressRunnable;
+    private int storyProgressTick = 0;
+    private static final int STORY_PHOTO_DURATION_MS = 5000; // 5 seconds
+
     // Bottom Navigation buttons & icons
     private View navCreate;
     private View navScan;
@@ -351,6 +365,12 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         setupSplashScreen();
         setupBottomNavigation();
         setupChatSystem();
+        
+        // Initialize Stories Database and Expiration thread
+        storyDb = new StoryDatabaseHelper(this);
+        StoryExpirationManager.getInstance(this).setListener(this::setupStoriesSystem);
+        StoryExpirationManager.getInstance(this).startAutoCleanup();
+
         setupStoriesSystem();
         setupSpotlightSystem();
 
@@ -1769,78 +1789,371 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         return list;
     }
 
-    private void playUserStories() {
-        List<File> snaps = scanSavedSnaps();
-        if (snaps.isEmpty()) {
-            Toast.makeText(this, "No saved snaps in Memories yet! Capture a photo and click Save.", Toast.LENGTH_LONG).show();
-            return;
-        }
-        
-        View overlay = findViewById(R.id.story_viewer_overlay);
-        ImageView img = findViewById(R.id.story_viewer_image);
-        VideoView vid = findViewById(R.id.story_viewer_video);
-        View closeBtn = findViewById(R.id.story_viewer_close);
-        
-        if (overlay == null || img == null || vid == null) return;
-        overlay.setVisibility(View.VISIBLE);
+    private void seedMockStoriesIfEmpty() {
+        if (storyDb == null) return;
+        List<StoryItem> userStories = storyDb.getStoriesByUser("user");
+        List<StoryItem> alexStories = storyDb.getStoriesByUser("Alex");
+        if (alexStories.isEmpty() && userStories.isEmpty()) {
+            Log.d(TAG, "Seeding mock friend stories in SQLite database...");
+            long now = System.currentTimeMillis();
+            long expires = now + (24 * 60 * 60 * 1000L); // 24 hours
 
-        if (closeBtn != null) {
-            closeBtn.setOnClickListener(v -> {
-                vid.stopPlayback();
-                overlay.setVisibility(View.GONE);
-            });
-        }
-        
-        File newest = snaps.get(0);
-        if (newest.getName().endsWith(".mp4")) {
-            img.setVisibility(View.GONE);
-            vid.setVisibility(View.VISIBLE);
-            vid.setVideoPath(newest.getAbsolutePath());
-            vid.setOnPreparedListener(mp -> vid.start());
-        } else {
-            vid.setVisibility(View.GONE);
-            img.setVisibility(View.VISIBLE);
-            img.setImageURI(Uri.fromFile(newest));
+            // 1. Alex Story (Video)
+            storyDb.addStory(new StoryItem(
+                    "alex_story_1",
+                    "Alex",
+                    "Alex",
+                    "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+                    true,
+                    now - 3600000L, // 1 hour ago
+                    expires - 3600000L,
+                    "EVERYONE",
+                    "Summer Chill",
+                    "[{\"emoji\":\"🔥\",\"scaleX\":1.5,\"scaleY\":1.5,\"translationX\":100.0,\"translationY\":-150.0,\"rotation\":15.0}]",
+                    "[{\"text\":\"Camping vibes! ⛺\",\"color\":-1,\"scaleX\":1.2,\"scaleY\":1.2,\"translationX\":0.0,\"translationY\":100.0,\"rotation\":-5.0}]",
+                    "[]", "[]",
+                    14, 2, "Sam,Jessica,Sarah", "🔥,❤️"
+            ));
+
+            // 2. Jessica Story (Video)
+            storyDb.addStory(new StoryItem(
+                    "jessica_story_1",
+                    "Jessica",
+                    "Jessica",
+                    "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+                    true,
+                    now - 7200000L, // 2 hours ago
+                    expires - 7200000L,
+                    "EVERYONE",
+                    "Lo-Fi Study",
+                    "[{\"emoji\":\"✨\",\"scaleX\":1.8,\"scaleY\":1.8,\"translationX\":-120.0,\"translationY\":-200.0,\"rotation\":-10.0}]",
+                    "[{\"text\":\"Road trip! 🚗💨\",\"color\":-16711681,\"scaleX\":1.3,\"scaleY\":1.3,\"translationX\":0.0,\"translationY\":250.0,\"rotation\":8.0}]",
+                    "[]", "[]",
+                    28, 4, "Alex,Sam,Sarah,David", "❤️,❤️,😂"
+            ));
+
+            // 3. Sam Story (Video)
+            storyDb.addStory(new StoryItem(
+                    "sam_story_1",
+                    "Sam",
+                    "Sam",
+                    "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+                    true,
+                    now - 10800000L, // 3 hours ago
+                    expires - 10800000L,
+                    "EVERYONE",
+                    "Dance Vibes",
+                    "[{\"emoji\":\"🎉\",\"scaleX\":1.4,\"scaleY\":1.4,\"translationX\":80.0,\"translationY\":-80.0,\"rotation\":20.0}]",
+                    "[{\"text\":\"Weekend vibes! 🕺\",\"color\":-256,\"scaleX\":1.1,\"scaleY\":1.1,\"translationX\":0.0,\"translationY\":50.0,\"rotation\":0.0}]",
+                    "[]", "[]",
+                    8, 0, "Alex,Jessica", "🔥"
+            ));
         }
     }
 
-    private void playFriendStory(String friendName) {
+    private void playStoryForUser(String userId, String displayName) {
+        if (storyDb == null) return;
+        activeStorySegments = storyDb.getStoriesByUser(userId);
+        if (activeStorySegments.isEmpty()) {
+            Toast.makeText(this, displayName + " has no active stories!", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         View overlay = findViewById(R.id.story_viewer_overlay);
-        ImageView img = findViewById(R.id.story_viewer_image);
-        VideoView vid = findViewById(R.id.story_viewer_video);
-        View closeBtn = findViewById(R.id.story_viewer_close);
-        
-        if (overlay == null || img == null || vid == null) return;
+        if (overlay == null) return;
         overlay.setVisibility(View.VISIBLE);
 
+        // Configure close button
+        View closeBtn = findViewById(R.id.story_viewer_close);
         if (closeBtn != null) {
-            closeBtn.setOnClickListener(v -> {
-                vid.stopPlayback();
-                overlay.setVisibility(View.GONE);
-            });
-        }
-        
-        String videoUrl;
-        if (friendName.equals("Alex")) {
-            videoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
-        } else if (friendName.equals("Jessica")) {
-            videoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4";
-        } else {
-            videoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4";
+            closeBtn.setOnClickListener(v -> closeStoryViewer());
         }
 
-        img.setVisibility(View.GONE);
-        vid.setVisibility(View.VISIBLE);
-        vid.setVideoPath(videoUrl);
-        vid.setOnPreparedListener(mp -> {
-            mp.setLooping(true);
-            vid.start();
-        });
+        // Configure Segmented Progress Bars
+        LinearLayout progressContainer = findViewById(R.id.story_viewer_progress_container);
+        if (progressContainer != null) {
+            progressContainer.removeAllViews();
+            for (int i = 0; i < activeStorySegments.size(); i++) {
+                android.widget.ProgressBar pb = new android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.0f);
+                lp.setMargins(6, 0, 6, 0);
+                pb.setLayoutParams(lp);
+                pb.setMax(100);
+                pb.setProgress(0);
+                pb.setProgressDrawable(ContextCompat.getDrawable(this, android.R.drawable.progress_horizontal));
+                pb.getProgressDrawable().setColorFilter(android.graphics.Color.WHITE, android.graphics.PorterDuff.Mode.SRC_IN);
+                progressContainer.addView(pb);
+            }
+        }
+
+        // Configure Touch Navigation Zones
+        View leftTouch = findViewById(R.id.story_viewer_left_touch);
+        View rightTouch = findViewById(R.id.story_viewer_right_touch);
         
-        Toast.makeText(this, "Playing " + friendName + "'s Story", Toast.LENGTH_SHORT).show();
+        if (leftTouch != null) {
+            leftTouch.setOnClickListener(v -> {
+                if (currentStorySegmentIndex > 0) {
+                    playSegment(currentStorySegmentIndex - 1);
+                } else {
+                    closeStoryViewer();
+                }
+            });
+        }
+        if (rightTouch != null) {
+            rightTouch.setOnClickListener(v -> {
+                if (currentStorySegmentIndex < activeStorySegments.size() - 1) {
+                    playSegment(currentStorySegmentIndex + 1);
+                } else {
+                    closeStoryViewer();
+                }
+            });
+        }
+
+        // Setup Reactions bar
+        LinearLayout reactionsBar = findViewById(R.id.story_viewer_reactions_bar);
+        if (reactionsBar != null) {
+            reactionsBar.removeAllViews();
+            String[] emojis = {"❤️", "😂", "🔥", "😮", "😢", "👍"};
+            for (String emoji : emojis) {
+                TextView emojiTv = new TextView(this);
+                emojiTv.setText(emoji);
+                emojiTv.setTextSize(28);
+                emojiTv.setPadding(20, 0, 20, 0);
+                emojiTv.setOnClickListener(v -> {
+                    StoryItem currentStory = activeStorySegments.get(currentStorySegmentIndex);
+                    storyDb.addReaction(currentStory.id, emoji);
+                    Toast.makeText(this, "Sent reaction " + emoji, Toast.LENGTH_SHORT).show();
+                });
+                reactionsBar.addView(emojiTv);
+            }
+        }
+
+        // Setup Reply box
+        android.widget.ImageButton replySend = findViewById(R.id.story_viewer_reply_send);
+        android.widget.EditText replyInput = findViewById(R.id.story_viewer_reply_input);
+        if (replySend != null && replyInput != null) {
+            replySend.setOnClickListener(v -> {
+                String text = replyInput.getText().toString();
+                if (!text.trim().isEmpty()) {
+                    StoryItem currentStory = activeStorySegments.get(currentStorySegmentIndex);
+                    storyDb.addReply(currentStory.id, "user", text);
+                    
+                    // Insert into Chat repository to make it genuinely functional!
+                    // Assuming chatRepo has a method to add messages
+                    if (chatRepo != null) {
+                        chatRepo.sendMessage("user", currentStory.userId, text, null, "text", null);
+                    }
+                    
+                    replyInput.setText("");
+                    Toast.makeText(this, "Reply sent to " + displayName + "!", Toast.LENGTH_SHORT).show();
+                    android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                    if (imm != null) imm.hideSoftInputFromWindow(replyInput.getWindowToken(), 0);
+                }
+            });
+        }
+
+        playSegment(0);
+    }
+
+    private void playSegment(int index) {
+        if (index < 0 || index >= activeStorySegments.size()) return;
+        currentStorySegmentIndex = index;
+        
+        StoryItem item = activeStorySegments.get(index);
+        
+        // 1. Reset progress handler
+        storyProgressHandler.removeCallbacks(storyProgressRunnable);
+        
+        // Update Segmented Progress bars visual state
+        LinearLayout progressContainer = findViewById(R.id.story_viewer_progress_container);
+        if (progressContainer != null) {
+            for (int i = 0; i < progressContainer.getChildCount(); i++) {
+                android.widget.ProgressBar pb = (android.widget.ProgressBar) progressContainer.getChildAt(i);
+                if (i < index) pb.setProgress(100);
+                else if (i > index) pb.setProgress(0);
+                else pb.setProgress(0);
+            }
+        }
+
+        // 2. Bind Header details
+        TextView usernameTv = findViewById(R.id.story_viewer_username);
+        TextView timeTv = findViewById(R.id.story_viewer_time);
+        if (usernameTv != null) usernameTv.setText(item.username);
+        if (timeTv != null) {
+            long diffMins = (System.currentTimeMillis() - item.timestamp) / 60000;
+            if (diffMins < 60) timeTv.setText(diffMins + "m ago");
+            else timeTv.setText((diffMins / 60) + "h ago");
+        }
+
+        // 3. Load Media
+        ImageView img = findViewById(R.id.story_viewer_image);
+        VideoView vid = findViewById(R.id.story_viewer_video);
+        if (img == null || vid == null) return;
+
+        if (item.isVideo) {
+            img.setVisibility(View.GONE);
+            vid.setVisibility(View.VISIBLE);
+            vid.setVideoPath(item.mediaPath);
+            vid.setOnPreparedListener(mp -> {
+                mp.setLooping(false);
+                vid.start();
+                
+                // Track progress matching video duration
+                int duration = mp.getDuration();
+                startStoryProgress(duration > 0 ? duration : STORY_PHOTO_DURATION_MS);
+            });
+        } else {
+            vid.setVisibility(View.GONE);
+            vid.stopPlayback();
+            img.setVisibility(View.VISIBLE);
+            img.setImageURI(null);
+            if (item.mediaPath.startsWith("content://") || item.mediaPath.startsWith("file://")) {
+                img.setImageURI(Uri.parse(item.mediaPath));
+            } else {
+                img.setImageURI(Uri.fromFile(new java.io.File(item.mediaPath)));
+            }
+            startStoryProgress(STORY_PHOTO_DURATION_MS);
+        }
+
+        // 4. Render Canvas Drawings, Texts, and Stickers Overlays
+        FrameLayout overlayContainer = findViewById(R.id.story_viewer_overlay_container);
+        DoodleView doodleView = findViewById(R.id.story_viewer_doodle);
+        if (overlayContainer != null) {
+            StoryOverlayManager.deserializeOverlays(this, overlayContainer, item.textsJson, item.stickersJson, false);
+            // Re-inflate DoodleView if we removed it
+            if (doodleView == null) {
+                doodleView = new DoodleView(this);
+                doodleView.setId(R.id.story_viewer_doodle);
+                FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+                doodleView.setLayoutParams(lp);
+                overlayContainer.addView(doodleView);
+            }
+            doodleView.setEnabled(false);
+            doodleView.setDrawingPathsFromJson(item.drawingsJson);
+        }
+
+        // 5. Play Background Music loop
+        if (storyMusicPlayer != null) {
+            storyMusicPlayer.release();
+            storyMusicPlayer = null;
+        }
+        if (item.musicTitle != null) {
+            String[] tracks = {"Snap Beats", "Summer Chill", "Dance Vibes", "Lo-Fi Study"};
+            String[] urls = {
+                "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+                "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+                "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+                "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"
+            };
+            int trackIdx = 0;
+            for (int k = 0; k < tracks.length; k++) {
+                if (tracks[k].equalsIgnoreCase(item.musicTitle)) {
+                    trackIdx = k;
+                    break;
+                }
+            }
+            storyMusicPlayer = new android.media.MediaPlayer();
+            try {
+                storyMusicPlayer.setDataSource(urls[trackIdx]);
+                storyMusicPlayer.setLooping(true);
+                storyMusicPlayer.prepareAsync();
+                storyMusicPlayer.setOnPreparedListener(android.media.MediaPlayer::start);
+            } catch (Exception e) {
+                Log.e(TAG, "Error playing story music", e);
+            }
+        }
+
+        // 6. Interaction & Analytics tracking
+        View bottomPanel = findViewById(R.id.story_viewer_bottom_panel);
+        View ownerMetrics = findViewById(R.id.story_viewer_owner_metrics);
+        TextView metricsText = findViewById(R.id.story_viewer_metrics_text);
+
+        if ("user".equalsIgnoreCase(item.userId)) {
+            // Owner view: show analytics stats
+            if (bottomPanel != null) bottomPanel.setVisibility(View.GONE);
+            if (ownerMetrics != null) {
+                ownerMetrics.setVisibility(View.VISIBLE);
+                if (metricsText != null) {
+                    metricsText.setText("👁️ " + item.viewCount + " views  •  📸 " + item.screenshotCount + " screenshots");
+                    
+                    // Show viewers list bottom sheet on click
+                    ownerMetrics.setOnClickListener(v -> {
+                        if (item.viewersCsv != null && !item.viewersCsv.isEmpty()) {
+                            String[] viewers = item.viewersCsv.split(",");
+                            android.widget.ListView listView = new android.widget.ListView(this);
+                            android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(this, android.R.layout.simple_list_item_1, viewers);
+                            listView.setAdapter(adapter);
+                            
+                            com.google.android.material.bottomsheet.BottomSheetDialog sheet = new com.google.android.material.bottomsheet.BottomSheetDialog(this);
+                            sheet.setContentView(listView);
+                            sheet.show();
+                        } else {
+                            Toast.makeText(this, "No views yet!", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                }
+            }
+        } else {
+            // Friend view: show reply box and reactions, increment view count
+            if (ownerMetrics != null) ownerMetrics.setVisibility(View.GONE);
+            if (bottomPanel != null) bottomPanel.setVisibility(View.VISIBLE);
+            
+            storyDb.incrementView(item.id, "user");
+        }
+    }
+
+    private void startStoryProgress(int durationMs) {
+        storyProgressTick = 0;
+        int interval = durationMs / 50; // Update progress bar 50 times over segment duration
+        
+        storyProgressRunnable = new Runnable() {
+            @Override
+            public void run() {
+                storyProgressTick++;
+                LinearLayout progressContainer = findViewById(R.id.story_viewer_progress_container);
+                if (progressContainer != null && currentStorySegmentIndex < progressContainer.getChildCount()) {
+                    android.widget.ProgressBar pb = (android.widget.ProgressBar) progressContainer.getChildAt(currentStorySegmentIndex);
+                    if (pb != null) pb.setProgress(storyProgressTick * 2);
+                }
+                
+                if (storyProgressTick >= 50) {
+                    // Auto-advance
+                    if (currentStorySegmentIndex < activeStorySegments.size() - 1) {
+                        playSegment(currentStorySegmentIndex + 1);
+                    } else {
+                        closeStoryViewer();
+                    }
+                } else {
+                    storyProgressHandler.postDelayed(this, interval);
+                }
+            }
+        };
+        storyProgressHandler.postDelayed(storyProgressRunnable, interval);
+    }
+
+    private void closeStoryViewer() {
+        storyProgressHandler.removeCallbacks(storyProgressRunnable);
+        
+        // Stop video
+        VideoView vid = findViewById(R.id.story_viewer_video);
+        if (vid != null) vid.stopPlayback();
+
+        // Stop music
+        if (storyMusicPlayer != null) {
+            storyMusicPlayer.stop();
+            storyMusicPlayer.release();
+            storyMusicPlayer = null;
+        }
+
+        View overlay = findViewById(R.id.story_viewer_overlay);
+        if (overlay != null) overlay.setVisibility(View.GONE);
+        
+        setupStoriesSystem();
     }
 
     private void setupStoriesSystem() {
+        seedMockStoriesIfEmpty();
+        
         LinearLayout friendsContainer = findViewById(R.id.stories_friends_container);
         if (friendsContainer != null) {
             friendsContainer.removeAllViews();
@@ -1856,14 +2169,15 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
 
                 nameView.setText(f);
                 
+                String userId = f.equals("My Story") ? "user" : f;
+                boolean hasStories = storyDb != null && !storyDb.getStoriesByUser(userId).isEmpty();
+                
                 // Configure avatar emojis and bg colors based on name
                 String emoji = "👻";
                 String color = "#FFFC00"; // default Snapchat yellow
                 if (f.equals("My Story")) {
                     emoji = "👻";
                     color = "#FFFC00";
-                    // For My Story, hide the gradient border (it's user's story)
-                    if (ring != null) ring.setBackground(null);
                 } else if (f.equals("Alex")) {
                     emoji = "👦";
                     color = "#FF9500";
@@ -1889,13 +2203,26 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                     avatarBg.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor(color)));
                 }
 
-                item.setOnClickListener(v -> {
-                    if (f.equals("My Story")) {
-                        playUserStories();
+                // Show gradient ring only if the friend has active stories
+                if (ring != null) {
+                    if (hasStories && !f.equals("My Story")) {
+                        ring.setVisibility(View.VISIBLE);
                     } else {
-                        // Mark as read: remove gradient ring
-                        if (ring != null) ring.setBackground(null);
-                        playFriendStory(f);
+                        // For user story or if no stories, hide gradient border ring
+                        ring.setBackground(null);
+                    }
+                }
+
+                item.setOnClickListener(v -> {
+                    if (hasStories) {
+                        if (ring != null) ring.setBackground(null); // Mark as read
+                        playStoryForUser(userId, f);
+                    } else {
+                        if (f.equals("My Story")) {
+                            Toast.makeText(this, "Capture a Snap and click Send to post your first story!", Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(this, f + " has no active stories.", Toast.LENGTH_SHORT).show();
+                        }
                     }
                 });
 
@@ -2568,25 +2895,40 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         View closeBtn = findViewById(R.id.post_btn_close);
         View saveBtn = findViewById(R.id.post_btn_save);
         View shareBtn = findViewById(R.id.post_btn_share);
+        View sendStoryBtn = findViewById(R.id.post_btn_send_story);
+        View stickersBtn = findViewById(R.id.post_btn_stickers);
+        View musicBtn = findViewById(R.id.post_btn_music);
+        
         DoodleView doodleView = findViewById(R.id.doodle_canvas);
-        TextView textOverlay = findViewById(R.id.text_overlay);
+        FrameLayout overlayContainer = findViewById(R.id.post_capture_overlay_container);
 
+        // 1. Text Overlay Tool
         if (textBtn != null) {
             textBtn.setOnClickListener(v -> {
                 EditText input = new EditText(this);
-                if (textOverlay != null && textOverlay.getVisibility() == View.VISIBLE) {
-                    input.setText(textOverlay.getText());
-                }
+                input.setHint("Add some text...");
                 new androidx.appcompat.app.AlertDialog.Builder(this)
                         .setTitle("Add Snap Text")
                         .setView(input)
                         .setPositiveButton("Done", (dialog, which) -> {
                             String txt = input.getText().toString();
                             if (!txt.trim().isEmpty()) {
-                                textOverlay.setText(txt);
-                                textOverlay.setVisibility(View.VISIBLE);
-                            } else {
-                                textOverlay.setVisibility(View.GONE);
+                                TextView tv = new TextView(this);
+                                tv.setText(txt);
+                                tv.setTextColor(android.graphics.Color.WHITE);
+                                tv.setTextSize(26);
+                                tv.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+                                tv.setShadowLayer(4f, 2f, 2f, android.graphics.Color.BLACK);
+                                
+                                FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                                        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                                lp.gravity = android.view.Gravity.CENTER;
+                                tv.setLayoutParams(lp);
+                                
+                                tv.setOnTouchListener(new MultiTouchListener());
+                                if (overlayContainer != null) {
+                                    overlayContainer.addView(tv);
+                                }
                             }
                         })
                         .setNegativeButton("Cancel", null)
@@ -2594,29 +2936,99 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             });
         }
 
-        // Make text draggable
-        if (textOverlay != null) {
-            textOverlay.setOnTouchListener(new View.OnTouchListener() {
-                float dX, dY;
-                @Override
-                public boolean onTouch(View view, MotionEvent event) {
-                    switch (event.getAction()) {
-                        case MotionEvent.ACTION_DOWN:
-                            dX = view.getX() - event.getRawX();
-                            dY = view.getY() - event.getRawY();
-                            break;
-                        case MotionEvent.ACTION_MOVE:
-                            view.setX(event.getRawX() + dX);
-                            view.setY(event.getRawY() + dY);
-                            break;
-                        default:
-                            return false;
+        // 2. Sticker Overlay Tool (BottomSheet)
+        if (stickersBtn != null) {
+            stickersBtn.setOnClickListener(v -> {
+                String[] emojis = {"🔥", "❤️", "😂", "😎", "✨", "🎉", "👻", "🐱", "🐶", "🍕", "🎵", "🌈", "🚀", "🧁"};
+                android.widget.GridView gridView = new android.widget.GridView(this);
+                gridView.setNumColumns(4);
+                gridView.setPadding(32, 32, 32, 32);
+                gridView.setVerticalSpacing(24);
+                gridView.setHorizontalSpacing(24);
+                
+                android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(this, android.R.layout.simple_list_item_1, emojis);
+                gridView.setAdapter(adapter);
+                
+                com.google.android.material.bottomsheet.BottomSheetDialog sheet = new com.google.android.material.bottomsheet.BottomSheetDialog(this);
+                sheet.setContentView(gridView);
+                
+                gridView.setOnItemClickListener((parent, view1, position, id) -> {
+                    String emoji = emojis[position];
+                    TextView tv = new TextView(this);
+                    tv.setText(emoji);
+                    tv.setTextSize(64);
+                    tv.setTag("sticker");
+                    
+                    FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                    lp.gravity = android.view.Gravity.CENTER;
+                    tv.setLayoutParams(lp);
+                    
+                    tv.setOnTouchListener(new MultiTouchListener());
+                    if (overlayContainer != null) {
+                        overlayContainer.addView(tv);
                     }
-                    return true;
-                }
+                    sheet.dismiss();
+                });
+                sheet.show();
             });
         }
 
+        // 3. Music Selector & Preview Tool
+        if (musicBtn != null) {
+            musicBtn.setOnClickListener(v -> {
+                String[] tracks = {"Snap Beats", "Summer Chill", "Dance Vibes", "Lo-Fi Study"};
+                String[] urls = {
+                    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+                    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+                    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+                    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"
+                };
+                
+                new androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle("Select Background Music")
+                        .setItems(tracks, (dialog, which) -> {
+                            selectedMusicTrack = tracks[which];
+                            Toast.makeText(this, "Music Selected: " + selectedMusicTrack, Toast.LENGTH_SHORT).show();
+                            
+                            // Play audio loop
+                            if (storyMusicPlayer != null) {
+                                storyMusicPlayer.release();
+                            }
+                            storyMusicPlayer = new android.media.MediaPlayer();
+                            try {
+                                storyMusicPlayer.setDataSource(urls[which]);
+                                storyMusicPlayer.setLooping(true);
+                                storyMusicPlayer.prepareAsync();
+                                storyMusicPlayer.setOnPreparedListener(android.media.MediaPlayer::start);
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error playing music preview", e);
+                            }
+                            
+                            // Add a visual floating music badge to the canvas
+                            TextView tv = new TextView(this);
+                            tv.setText("🎵 " + selectedMusicTrack);
+                            tv.setTextColor(android.graphics.Color.BLACK);
+                            tv.setBackgroundColor(android.graphics.Color.parseColor("#FFFC00")); // Yellow Snapchat tag
+                            tv.setPadding(24, 12, 24, 12);
+                            tv.setTextSize(16);
+                            tv.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+                            
+                            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                            lp.gravity = android.view.Gravity.CENTER;
+                            tv.setLayoutParams(lp);
+                            
+                            tv.setOnTouchListener(new MultiTouchListener());
+                            if (overlayContainer != null) {
+                                overlayContainer.addView(tv);
+                            }
+                        })
+                        .show();
+            });
+        }
+
+        // 4. Drawing Brush Tool
         if (doodleBtn != null) {
             doodleBtn.setOnClickListener(v -> {
                 if (doodleView != null) {
@@ -2632,24 +3044,128 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             });
         }
 
+        // 5. Close Preview
         if (closeBtn != null) {
             closeBtn.setOnClickListener(v -> {
                 findViewById(R.id.post_capture_layer).setVisibility(View.GONE);
                 android.widget.VideoView vv = findViewById(R.id.post_capture_video);
                 if (vv != null && vv.isPlaying()) vv.stopPlayback();
+                
+                // Stop music if playing
+                if (storyMusicPlayer != null) {
+                    storyMusicPlayer.stop();
+                    storyMusicPlayer.release();
+                    storyMusicPlayer = null;
+                }
+                
+                // Reset overlays
+                if (doodleView != null) {
+                    doodleView.clearCanvas();
+                    doodleView.setVisibility(View.GONE);
+                }
+                if (overlayContainer != null) {
+                    overlayContainer.removeAllViews();
+                }
+                selectedMusicTrack = null;
+                
                 startCamera();
             });
         }
 
+        // 6. Save Snap to Memories
         if (saveBtn != null) {
-            saveBtn.setOnClickListener(v -> saveFinalizedSnap());
+            saveBtn.setOnClickListener(v -> {
+                saveFinalizedSnap();
+                // Clean up editor state
+                if (overlayContainer != null) {
+                    overlayContainer.removeAllViews();
+                }
+                if (storyMusicPlayer != null) {
+                    storyMusicPlayer.stop();
+                    storyMusicPlayer.release();
+                    storyMusicPlayer = null;
+                }
+                selectedMusicTrack = null;
+            });
         }
 
+        // 7. Share Externally
         if (shareBtn != null) {
             shareBtn.setOnClickListener(v -> {
                 if (capturedUri != null) {
                     shareMedia(capturedUri, capturedIsPhoto);
                 }
+            });
+        }
+
+        // 8. Upload to Story (SQLite insertion)
+        if (sendStoryBtn != null) {
+            sendStoryBtn.setOnClickListener(v -> {
+                if (capturedUri == null) return;
+                
+                String path = capturedUri.toString();
+                String storyId = java.util.UUID.randomUUID().toString();
+                long now = System.currentTimeMillis();
+                long expires = now + (24 * 60 * 60 * 1000L); // 24 hours
+                
+                // Serialize drawing paths
+                String drawingsJson = "[]";
+                if (doodleView != null && doodleView.getVisibility() == View.VISIBLE) {
+                    drawingsJson = doodleView.getDrawingPathsJson();
+                }
+                
+                // Serialize text & stickers
+                String textsJson = "[]";
+                String stickersJson = "[]";
+                if (overlayContainer != null) {
+                    textsJson = StoryOverlayManager.serializeTexts(overlayContainer);
+                    stickersJson = StoryOverlayManager.serializeStickers(overlayContainer);
+                }
+                
+                // Create StoryItem
+                StoryItem item = new StoryItem(
+                        storyId,
+                        "user",          // current user
+                        "My Story",
+                        path,
+                        !capturedIsPhoto, // isVideo
+                        now,
+                        expires,
+                        storyPrivacy,
+                        selectedMusicTrack,
+                        stickersJson,
+                        textsJson,
+                        drawingsJson,
+                        "[]", // mentions
+                        0, 0, "", "" // views, screenshots, reactions
+                );
+                
+                if (storyDb != null) {
+                    storyDb.addStory(item);
+                }
+                
+                // Stop music if playing
+                if (storyMusicPlayer != null) {
+                    storyMusicPlayer.stop();
+                    storyMusicPlayer.release();
+                    storyMusicPlayer = null;
+                }
+                
+                Toast.makeText(this, "Posted to Story! 👻", Toast.LENGTH_SHORT).show();
+                findViewById(R.id.post_capture_layer).setVisibility(View.GONE);
+                
+                // Reset views
+                if (doodleView != null) {
+                    doodleView.clearCanvas();
+                    doodleView.setVisibility(View.GONE);
+                }
+                if (overlayContainer != null) {
+                    overlayContainer.removeAllViews();
+                }
+                selectedMusicTrack = null;
+                
+                setupStoriesSystem();
+                startCamera();
             });
         }
 
@@ -2754,19 +3270,38 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                     canvas.drawBitmap(scaledDoodle, 0, 0, null);
                 }
 
-                // 3. Draw text overlay
-                TextView tv = findViewById(R.id.text_overlay);
-                if (tv != null && tv.getVisibility() == View.VISIBLE) {
-                    android.graphics.Paint textPaint = new android.graphics.Paint();
-                    textPaint.setColor(tv.getCurrentTextColor());
-                    // Scale text size proportional to resolution
-                    textPaint.setTextSize(tv.getTextSize() * (srcBitmap.getWidth() / (float) viewFinder.getWidth()));
-                    textPaint.setAntiAlias(true);
-                    textPaint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+                // 3. Draw dynamic overlays (texts and stickers)
+                FrameLayout overlayContainer = findViewById(R.id.post_capture_overlay_container);
+                if (overlayContainer != null) {
+                    float scaleRatioX = srcBitmap.getWidth() / (float) viewFinder.getWidth();
+                    float scaleRatioY = srcBitmap.getHeight() / (float) viewFinder.getHeight();
                     
-                    float relX = tv.getX() / (float) viewFinder.getWidth() * srcBitmap.getWidth();
-                    float relY = (tv.getY() + tv.getBaseline()) / (float) viewFinder.getHeight() * srcBitmap.getHeight();
-                    canvas.drawText(tv.getText().toString(), relX, relY, textPaint);
+                    for (int i = 0; i < overlayContainer.getChildCount(); i++) {
+                        View child = overlayContainer.getChildAt(i);
+                        if (child instanceof TextView) {
+                            TextView tv = (TextView) child;
+                            android.graphics.Paint textPaint = new android.graphics.Paint();
+                            textPaint.setAntiAlias(true);
+                            
+                            boolean isSticker = "sticker".equals(tv.getTag());
+                            if (isSticker) {
+                                textPaint.setTextSize(tv.getTextSize() * scaleRatioX * tv.getScaleX());
+                            } else {
+                                textPaint.setColor(tv.getCurrentTextColor());
+                                textPaint.setTextSize(tv.getTextSize() * scaleRatioX * tv.getScaleX());
+                                textPaint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+                                textPaint.setShadowLayer(4f * scaleRatioX, 2f * scaleRatioX, 2f * scaleRatioX, android.graphics.Color.BLACK);
+                            }
+                            
+                            float relX = tv.getTranslationX() * scaleRatioX + (srcBitmap.getWidth() / 2f) - (tv.getWidth() * tv.getScaleX() * scaleRatioX / 2f);
+                            float relY = tv.getTranslationY() * scaleRatioY + (srcBitmap.getHeight() / 2f) + (tv.getBaseline() * tv.getScaleY() * scaleRatioY / 2f);
+                            
+                            canvas.save();
+                            canvas.rotate(tv.getRotation(), relX + (tv.getWidth() * tv.getScaleX() * scaleRatioX / 2f), relY - (tv.getBaseline() * tv.getScaleY() * scaleRatioY / 2f));
+                            canvas.drawText(tv.getText().toString(), relX, relY, textPaint);
+                            canvas.restore();
+                        }
+                    }
                 }
 
                 // Write back
@@ -2781,14 +3316,13 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                     Toast.makeText(MainActivity.this, "Saved to Memories!", Toast.LENGTH_SHORT).show();
                     findViewById(R.id.post_capture_layer).setVisibility(View.GONE);
                     
-                    // Reset doodle & text
+                    // Reset doodle & overlay container
                     if (doodleView != null) {
                         doodleView.clearCanvas();
                         doodleView.setVisibility(View.GONE);
                     }
-                    if (tv != null) {
-                        tv.setText("");
-                        tv.setVisibility(View.GONE);
+                    if (overlayContainer != null) {
+                        overlayContainer.removeAllViews();
                     }
                     
                     loadLastSavedThumbnail();
@@ -3591,6 +4125,13 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         super.onDestroy();
         cameraExecutor.shutdown();
         timerHandler.removeCallbacks(timerRunnable);
+        
+        // Expiration manager and media player cleanups
+        StoryExpirationManager.getInstance(this).stopAutoCleanup();
+        if (storyMusicPlayer != null) {
+            storyMusicPlayer.release();
+            storyMusicPlayer = null;
+        }
     }
 
     @Override

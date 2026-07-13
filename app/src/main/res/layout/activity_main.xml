@@ -1099,6 +1099,7 @@
     </androidx.core.widget.NestedScrollView>
 
     <!-- Fullscreen story viewer overlay -->
+    <!-- Fullscreen story viewer overlay -->
     <FrameLayout
         android:id="@+id/story_viewer_overlay"
         android:layout_width="match_parent"
@@ -1120,15 +1121,177 @@
             android:layout_gravity="center"
             android:visibility="gone" />
 
-        <ImageButton
-            android:id="@+id/story_viewer_close"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginTop="40dp"
+        <!-- Overlay container to render drawing canvas, text, and stickers -->
+        <FrameLayout
+            android:id="@+id/story_viewer_overlay_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+            
+            <com.example.camera.DoodleView
+                android:id="@+id/story_viewer_doodle"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:visibility="visible"
+                android:enabled="false" />
+        </FrameLayout>
+
+        <!-- Segmented progress bar at the top -->
+        <LinearLayout
+            android:id="@+id/story_viewer_progress_container"
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:layout_marginTop="48dp"
             android:layout_marginStart="16dp"
-            android:background="@color/transparent"
-            android:src="@drawable/ic_back"
-            app:tint="@color/white" />
+            android:layout_marginEnd="16dp"
+            android:orientation="horizontal"
+            android:gravity="center" />
+
+        <!-- Top Header: Username, Timestamp, Close -->
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="56dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp">
+
+            <TextView
+                android:id="@+id/story_viewer_username"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:shadowColor="#80000000"
+                android:shadowDx="1"
+                android:shadowDy="1"
+                android:shadowRadius="2" />
+
+            <TextView
+                android:id="@+id/story_viewer_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_toEndOf="@id/story_viewer_username"
+                android:layout_marginStart="8dp"
+                android:textColor="#B3FFFFFF"
+                android:textSize="14sp"
+                android:shadowColor="#80000000"
+                android:shadowDx="1"
+                android:shadowDy="1"
+                android:shadowRadius="2" />
+
+            <ImageButton
+                android:id="@+id/story_viewer_close"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_alignParentEnd="true"
+                android:background="@color/transparent"
+                android:src="@drawable/ic_back"
+                app:tint="@color/white" />
+        </RelativeLayout>
+
+        <!-- Touch zones for navigation (Left 25% to go back, Right 75% to go forward) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:layout_marginTop="100dp"
+            android:layout_marginBottom="120dp">
+            
+            <View
+                android:id="@+id/story_viewer_left_touch"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@color/transparent" />
+
+            <View
+                android:id="@+id/story_viewer_right_touch"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="3"
+                android:background="@color/transparent" />
+        </LinearLayout>
+
+        <!-- Bottom Reply Panel & Quick Reactions -->
+        <LinearLayout
+            android:id="@+id/story_viewer_bottom_panel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:orientation="vertical"
+            android:paddingBottom="24dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:background="@drawable/gradient_scrim_bottom">
+
+            <!-- Quick Emoji Reactions Bar -->
+            <LinearLayout
+                android:id="@+id/story_viewer_reactions_bar"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:layout_marginBottom="8dp" />
+
+            <!-- Text Reply input & Send button -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <EditText
+                    android:id="@+id/story_viewer_reply_input"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/snap_floating_nav_bg"
+                    android:hint="Send a reply..."
+                    android:textColorHint="#99FFFFFF"
+                    android:textColor="@color/white"
+                    android:textSize="14sp"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:imeOptions="actionSend"
+                    android:singleLine="true" />
+
+                <ImageButton
+                    android:id="@+id/story_viewer_reply_send"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/snap_floating_nav_bg"
+                    android:src="@android:drawable/ic_menu_send"
+                    app:tint="@color/white" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Owner Stats / Analytics (Visible only for User's own stories) -->
+        <LinearLayout
+            android:id="@+id/story_viewer_owner_metrics"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:padding="16dp"
+            android:background="@drawable/gradient_scrim_bottom"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/story_viewer_metrics_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:text="👁️ 0 views  •  📸 0 screenshots"
+                android:shadowColor="#80000000"
+                android:shadowDx="1"
+                android:shadowDy="1"
+                android:shadowRadius="2" />
+        </LinearLayout>
+
     </FrameLayout>
 
     <!-- ==================== SPOTLIGHT LAYER (TAB 5) ==================== -->
@@ -1443,21 +1606,11 @@
             android:layout_height="match_parent"
             android:visibility="gone" />
 
-        <!-- Text overlay container -->
-        <TextView
-            android:id="@+id/text_overlay"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:textColor="@color/white"
-            android:textSize="28sp"
-            android:textStyle="bold"
-            android:shadowColor="#80000000"
-            android:shadowDx="2"
-            android:shadowDy="2"
-            android:shadowRadius="4"
-            android:visibility="gone"
-            android:padding="8dp" />
+        <!-- Overlay container for moveable stickers & text layers -->
+        <FrameLayout
+            android:id="@+id/post_capture_overlay_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
 
         <!-- Top toolbar for post-capture -->
         <LinearLayout
@@ -1481,6 +1634,28 @@
                 android:contentDescription="Close"
                 android:layout_weight="1"
                 android:layout_gravity="start" />
+
+            <!-- Music Tool -->
+            <ImageButton
+                android:id="@+id/post_btn_music"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="12dp"
+                android:background="@color/transparent"
+                android:contentDescription="Music"
+                android:src="@drawable/ic_tool_music"
+                app:tint="@color/white" />
+
+            <!-- Stickers Tool -->
+            <ImageButton
+                android:id="@+id/post_btn_stickers"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="12dp"
+                android:background="@color/transparent"
+                android:contentDescription="Stickers"
+                android:src="@drawable/ic_tool_scissors"
+                app:tint="@color/white" />
 
             <!-- Text tool -->
             <ImageButton
@@ -1534,11 +1709,23 @@
                 style="@style/Widget.Material3.Button.IconButton"
                 android:layout_width="56dp"
                 android:layout_height="56dp"
-                android:layout_marginEnd="48dp"
+                android:layout_marginEnd="24dp"
                 app:icon="@drawable/ic_gallery"
                 app:iconTint="@color/white"
                 app:iconSize="28dp"
                 android:backgroundTint="@color/glass_white" />
+
+            <!-- Send to Story -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/post_btn_send_story"
+                style="@style/Widget.Material3.Button.IconButton"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:layout_marginEnd="24dp"
+                app:icon="@android:drawable/ic_menu_send"
+                app:iconTint="@color/black"
+                app:iconSize="32dp"
+                android:backgroundTint="#FFFC00" />
 
             <!-- Share externally -->
             <com.google.android.material.button.MaterialButton
