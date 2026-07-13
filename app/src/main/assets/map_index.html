@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <style>
+        body, html, #map {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: #12121A;
+        }
+        /* Custom pulsing marker */
+        .pulse-marker {
+            width: 20px;
+            height: 20px;
+            background: #00FF14;
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 0 15px #00FF14;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% {
+                transform: scale(0.9);
+                box-shadow: 0 0 0 0 rgba(0, 255, 20, 0.7);
+            }
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 10px rgba(0, 255, 20, 0);
+            }
+            100% {
+                transform: scale(0.9);
+                box-shadow: 0 0 0 0 rgba(0, 255, 20, 0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script>
+        var map = L.map('map', {
+            zoomControl: false,
+            attributionControl: false
+        }).setView([34.0522, -118.2437], 13); // Default Los Angeles
+
+        // Load CARTO Dark Matter map tiles (cool dark styled map)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19
+        }).addTo(map);
+
+        var marker = null;
+
+        function updateLocation(lat, lng) {
+            var latlng = [lat, lng];
+            map.setView(latlng, 15);
+            
+            if (marker) {
+                marker.setLatLng(latlng);
+            } else {
+                var pulseIcon = L.divIcon({
+                    className: 'pulse-marker',
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                });
+                marker = L.marker(latlng, {icon: pulseIcon}).addTo(map);
+            }
+        }
+    </script>
+</body>
+</html>

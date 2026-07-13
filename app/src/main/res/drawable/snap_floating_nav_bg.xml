@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Floating Navigation Bar Background: fully rounded capsule with border outline -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <!-- Dark translucent background -->
+    <solid android:color="#E612161F" />
+    <!-- 15% white stroke for a premium outline glow -->
+    <stroke
+        android:width="1dp"
+        android:color="#26FFFFFF" />
+    <corners android:radius="100dp" />
+</shape>

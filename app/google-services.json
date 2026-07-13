@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "467110322156",
+    "project_id": "snaptake-5a82f",
+    "storage_bucket": "snaptake-5a82f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:467110322156:android:14a88c60a1416ce788eac9",
+        "android_client_info": {
+          "package_name": "com.example.camera"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmK_TSPIEvJTy3SDXUhDP28GpKiII-Pqo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

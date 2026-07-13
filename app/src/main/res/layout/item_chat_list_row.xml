@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="72dp"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:background="#000000">
+
+    <!-- Bitmoji Avatar Frame -->
+    <FrameLayout
+        android:id="@+id/chat_row_avatar_container"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:background="@drawable/glass_rec_pill"
+        android:backgroundTint="#FFFC00"
+        android:layout_marginEnd="12dp">
+        <TextView
+            android:id="@+id/chat_row_avatar_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="👻"
+            android:textSize="20sp" />
+    </FrameLayout>
+
+    <!-- Mid Section (Name and Status row) -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/chat_row_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/white"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="2dp">
+
+            <!-- Snapchat-style unread/read icon indicator -->
+            <ImageView
+                android:id="@+id/chat_row_status_icon"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:layout_marginEnd="6dp"
+                android:src="@android:drawable/checkbox_on_background" />
+
+            <TextView
+                android:id="@+id/chat_row_status_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#8E8E93"
+                android:textSize="12sp"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Streak indicator -->
+    <LinearLayout
+        android:id="@+id/chat_row_streak_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginEnd="16dp"
+        android:visibility="gone">
+        <TextView
+            android:id="@+id/chat_row_streak_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/white"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:text="🔥 145" />
+    </LinearLayout>
+
+    <!-- Quick Camera Shortcut button -->
+    <ImageButton
+        android:id="@+id/chat_row_btn_camera"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:background="@color/transparent"
+        android:src="@drawable/ic_camera"
+        app:tint="#8E8E93"
+        android:contentDescription="Instant Camera" />
+
+</LinearLayout>

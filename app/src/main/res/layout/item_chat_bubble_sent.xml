@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:paddingTop="6dp"
+    android:paddingBottom="6dp">
+
+    <!-- Vertical blue indicator bar for saved messages -->
+    <View
+        android:id="@+id/chat_saved_indicator"
+        android:layout_width="3dp"
+        android:layout_height="match_parent"
+        android:background="#00B6FF"
+        android:layout_marginEnd="10dp"
+        android:visibility="gone" />
+
+    <!-- Message Content Body -->
+    <LinearLayout
+        android:id="@+id/chat_bubble_main"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:background="@android:color/transparent"
+        android:padding="2dp">
+
+        <!-- Sender Username Label -->
+        <TextView
+            android:id="@+id/chat_sender"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="You"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:textColor="#00B6FF"
+            android:layout_marginBottom="2dp" />
+
+        <!-- Reply Preview Box -->
+        <LinearLayout
+            android:id="@+id/chat_reply_container"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#15FFFFFF"
+            android:padding="6dp"
+            android:layout_marginBottom="4dp"
+            android:visibility="gone">
+            <TextView
+                android:id="@+id/chat_reply_sender"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:textColor="#80FFFFFF" />
+            <TextView
+                android:id="@+id/chat_reply_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:textColor="#CCFFFFFF"
+                android:maxLines="2" />
+        </LinearLayout>
+
+        <!-- Media Image Attachment -->
+        <ImageView
+            android:id="@+id/chat_image"
+            android:layout_width="220dp"
+            android:layout_height="220dp"
+            android:scaleType="centerCrop"
+            android:visibility="gone"
+            android:layout_marginBottom="4dp" />
+
+        <!-- Video Attachment Container -->
+        <FrameLayout
+            android:id="@+id/chat_video_container"
+            android:layout_width="220dp"
+            android:layout_height="220dp"
+            android:visibility="gone"
+            android:layout_marginBottom="4dp">
+            <ImageView
+                android:id="@+id/chat_video_thumbnail"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop" />
+            <ImageView
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_gravity="center"
+                android:src="@android:drawable/ic_media_play"
+                app:tint="@color/white" />
+        </FrameLayout>
+
+        <!-- Voice Note Player Container -->
+        <LinearLayout
+            android:id="@+id/chat_voice_container"
+            android:layout_width="200dp"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:visibility="gone"
+            android:padding="6dp"
+            android:background="#15FFFFFF"
+            android:layout_marginBottom="4dp">
+            <ImageButton
+                android:id="@+id/chat_voice_play_btn"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:background="@android:color/transparent"
+                android:src="@android:drawable/ic_media_play"
+                app:tint="@color/white" />
+            <ProgressBar
+                android:id="@+id/chat_voice_progress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp" />
+            <TextView
+                android:id="@+id/chat_voice_duration"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="11sp"
+                android:textColor="@color/white"
+                android:text="0:00" />
+        </LinearLayout>
+
+        <!-- Main Text Content -->
+        <TextView
+            android:id="@+id/chat_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="15sp"
+            android:textColor="@color/white"
+            android:maxWidth="280dp"
+            android:lineSpacingExtra="2dp" />
+
+        <!-- Reactions Row -->
+        <LinearLayout
+            android:id="@+id/chat_reactions_layout"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:visibility="gone"
+            android:layout_marginTop="4dp"
+            android:background="#2E2E3E"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp" />
+            
+    </LinearLayout>
+
+    <!-- Metadata right side (time + read status ticks) -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_gravity="bottom"
+        android:gravity="center_vertical"
+        android:layout_marginStart="8dp">
+        <TextView
+            android:id="@+id/chat_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="9sp"
+            android:textColor="#66FFFFFF"
+            android:text="12:00 PM" />
+        <ImageView
+            android:id="@+id/chat_status_ticks"
+            android:layout_width="12dp"
+            android:layout_height="12dp"
+            android:layout_marginStart="3dp"
+            android:src="@android:drawable/checkbox_on_background"
+            app:tint="#66FFFFFF" />
+    </LinearLayout>
+
+</LinearLayout>

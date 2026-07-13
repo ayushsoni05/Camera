@@ -22,6 +22,26 @@ import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.ScrollView;
+import android.widget.LinearLayout;
+import android.widget.GridLayout;
+import android.widget.RelativeLayout;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.content.Context;
+import android.media.MediaPlayer;
+import android.media.MediaRecorder;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import android.widget.VideoView;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import java.io.File;
+import java.util.Collections;
+import java.util.Comparator;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -34,7 +54,7 @@ import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.MeteringPoint;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
-import androidx.camera.view.PreviewView;
+import androidx.viewpager2.widget.ViewPager2;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
@@ -56,6 +76,9 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
     private static final String TAG = "PrismaticAura";
     private static final String FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS";
     private static final int REQUEST_CODE_PERMISSIONS = 10;
+    private LocationRepository locationRepo;
+    private DeepARManager deepARManager;
+    private ChatRepository chatRepo;
     
     private static final String[] REQUIRED_PERMISSIONS =
             Build.VERSION.SDK_INT <= Build.VERSION_CODES.P ?
@@ -73,7 +96,7 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
     private androidx.camera.video.VideoCapture<androidx.camera.video.Recorder> videoCapture;
     private androidx.camera.video.Recording activeRecording;
     
-    private PreviewView viewFinder;
+    private androidx.camera.view.PreviewView viewFinder;
     private Camera camera;
     private ExecutorService cameraExecutor;
     private int lensFacing = CameraSelector.LENS_FACING_BACK;
@@ -125,7 +148,12 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
     // Face detector and Lenses
     private FaceDetector faceDetector;
     private String activeLensName = "None";
-    private final String[] lensesList = {"None", "Dog", "Glasses", "Crown", "Stache"};
+    private final String[] lensesList = {
+        "None", "Dog", "Glasses", "Crown", "Stache", "Neon Devil", "Angel Halo", "Cyberpunk HUD",
+        "Bunny", "Cat", "Flower Crown", "Beard", "Ghost", "Star Eyes", "Heart Eyes", "Fire Head",
+        "Rainbow Mouth", "Alien", "Pirate", "Clown", "Superhero", "Vampire", "Wizard", "Space Helmet",
+        "Butterfly"
+    };
     private boolean isSmileShutterEnabled = true;
 
     // Post-capture State
@@ -139,6 +167,89 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
     private GalleryAdapter viewerAdapter;
     private GestureDetector viewFinderGestureDetector;
 
+    // Splash screen views
+    private View splashScreen;
+    private com.airbnb.lottie.LottieAnimationView splashLottie;
+    private TextView splashTitle;
+
+    // Navigation layout layers
+    private View cameraLayer;
+    private View mapLayer;
+    private View chatLayer;
+    private View storiesLayer;
+    private View spotlightLayer;
+
+    // Bottom Navigation buttons & icons
+    private View navCreate;
+    private View navScan;
+    private View navClose;
+    private View navBrowse;
+    private View navExplore;
+
+    private ImageView navCreateIcon;
+    private ImageView navScanIcon;
+    private View navCloseIcon;
+    private ImageView navBrowseIcon;
+    private ImageView navExploreIcon;
+
+    private View navCreateCapsule;
+    private View navScanCapsule;
+    private View navCloseCapsule;
+    private View navBrowseCapsule;
+    private View navExploreCapsule;
+
+    private TextView navCreateLabel;
+    private TextView navScanLabel;
+    private TextView navCloseLabel;
+    private TextView navBrowseLabel;
+    private TextView navExploreLabel;
+
+    private View navCreateDot;
+    private View navScanDot;
+    private View navCloseDot;
+    private View navBrowseDot;
+    private View navExploreDot;
+
+    private View captureContainer;
+    private View lensesCarousel;
+    private TextView filterNameIndicator;
+    private WebView mapWebView;
+    private VideoView spotlightVideoView;
+
+
+
+    // Interactive Chat views
+    private View chatPanel;
+    private LinearLayout chatMessagesContainer;
+    private EditText chatInput;
+    private ScrollView chatScroll;
+    private String activeChatFriend = "";
+    private String activeChatFriendId = "";
+    private String currentTestingUserId = "currentUser"; // swappable to "peerUser"
+    private String replyToMessageId = null;
+    private String replyToMessageText = null;
+    private String searchQuery = null;
+    private boolean isGroupChat = false;
+    private String currentGroupId = null;
+
+    // Spotlight views & data lists
+    private int currentSpotlightIndex = 0;
+    private int currentTab = 3; // default to camera tab
+    private final List<SpotlightItem> spotlightItems = new ArrayList<>();
+    private boolean isLocationTracking = false;
+    private android.location.LocationListener locationListener;
+    private final String[] spotlightUrls = {
+        "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+        "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+        "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4"
+    };
+    private ImageView spotlightBgImage;
+    private View spotlightColorShape;
+    private TextView spotlightCreator;
+    private TextView spotlightCaption;
+    private TextView spotlightMusic;
+    private TextView spotlightLikes;
+
     private static class MediaItem {
         Uri uri;
         boolean isImage;
@@ -150,14 +261,62 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         }
     }
 
+    private static class ChatFriend {
+        String id;
+        String name;
+        String statusText;
+        String time;
+        int statusIcon;
+        boolean hasStreaks;
+        int streaksCount;
+        ChatFriend(String id, String name, String statusText, String time, int statusIcon, boolean hasStreaks, int streaksCount) {
+            this.id = id;
+            this.name = name;
+            this.statusText = statusText;
+            this.time = time;
+            this.statusIcon = statusIcon;
+            this.hasStreaks = hasStreaks;
+            this.streaksCount = streaksCount;
+        }
+    }
+
+    public static class SpotlightItem {
+        public String creator;
+        public String caption;
+        public String music;
+        public String likes;
+        public String videoUrl;
+        public SpotlightItem(String creator, String caption, String music, String likes, String videoUrl) {
+            this.creator = creator;
+            this.caption = caption;
+            this.music = music;
+            this.likes = likes;
+            this.videoUrl = videoUrl;
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        // Remove the purple status bar line and make status bar completely transparent/edge-to-edge
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            getWindow().getDecorView().setSystemUiVisibility(
+                android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
+                android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            );
+            getWindow().setStatusBarColor(android.graphics.Color.TRANSPARENT);
+        }
+        
         setContentView(R.layout.activity_main);
 
         viewFinder = findViewById(R.id.viewFinder);
+        Log.e(TAG, "viewFinder is " + (viewFinder != null ? "FOUND" : "NULL"));
         if (viewFinder != null) {
-            viewFinder.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
+            viewFinder.setImplementationMode(androidx.camera.view.PreviewView.ImplementationMode.COMPATIBLE);
+            // Disabled DeepAR conflict to ensure native CameraX takes exclusive ownership of the SurfaceView
+            deepARManager = null;
+            Log.e(TAG, "DeepARManager disabled for native CameraX fallback");
         }
 
         sensorManager = (android.hardware.SensorManager) getSystemService(android.content.Context.SENSOR_SERVICE);
@@ -173,12 +332,12 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                 .build();
         faceDetector = FaceDetection.getClient(faceOptions);
 
+        cameraExecutor = Executors.newSingleThreadExecutor();
+
         initializeUI();
         setupFilterCarousel();
-        setupLensesCarousel();
+        setupLensCarousel();
         setupGestureDetectors();
-
-        cameraExecutor = Executors.newSingleThreadExecutor();
 
         if (allPermissionsGranted()) {
             initializeExtensionsAndStartCamera();
@@ -188,6 +347,15 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
 
         // Check if first-run tutorial is needed
         showTutorialIfNeeded();
+
+        setupSplashScreen();
+        setupBottomNavigation();
+        setupChatSystem();
+        setupStoriesSystem();
+        setupSpotlightSystem();
+
+        // Explicitly switch to the camera tab (tab index 3) at boot for correct initialization and layout styling.
+        switchTab(3);
     }
 
     private void showTutorialIfNeeded() {
@@ -203,19 +371,1620 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         }
     }
 
+    private void setupSplashScreen() {
+        splashScreen = findViewById(R.id.splash_screen_overlay);
+        splashLottie = findViewById(R.id.splash_lottie);
+        splashTitle = findViewById(R.id.splash_title);
+
+        if (splashScreen != null && splashLottie != null && splashTitle != null) {
+            // Setup initial animated states
+            splashTitle.setAlpha(0f);
+            splashTitle.setTranslationY(40f);
+            
+            splashLottie.setScaleX(0.4f);
+            splashLottie.setScaleY(0.4f);
+            splashLottie.setAlpha(0f);
+
+            splashLottie.playAnimation();
+
+            // 1. Logo overshoot scale-in animation
+            splashLottie.animate()
+                    .scaleX(1.1f)
+                    .scaleY(1.1f)
+                    .alpha(1f)
+                    .setDuration(800)
+                    .setInterpolator(new android.view.animation.OvershootInterpolator())
+                    .withEndAction(() -> {
+                        splashLottie.animate()
+                                .scaleX(1.0f)
+                                .scaleY(1.0f)
+                                .setDuration(200)
+                                .start();
+                    })
+                    .start();
+
+            // 2. Title fade-in and slide-up animation
+            splashTitle.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setDuration(800)
+                    .setStartDelay(300)
+                    .start();
+
+            // 3. Cinematic Curtain slide-up exit animation (reveals the camera)
+            splashScreen.post(() -> {
+                splashScreen.animate()
+                        .translationY(-splashScreen.getHeight())
+                        .setDuration(900)
+                        .setStartDelay(2400)
+                        .setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator())
+                        .withEndAction(() -> {
+                            splashScreen.setVisibility(View.GONE);
+                            splashLottie.cancelAnimation();
+                        })
+                        .start();
+            });
+        }
+    }
+
+    private void setupBottomNavigation() {
+        cameraLayer = findViewById(R.id.camera_layer);
+        mapLayer = findViewById(R.id.map_layer);
+        chatLayer = findViewById(R.id.chat_layer);
+        storiesLayer = findViewById(R.id.stories_layer);
+        spotlightLayer = findViewById(R.id.spotlight_layer);
+
+        navCreate = findViewById(R.id.nav_create);
+        navScan = findViewById(R.id.nav_scan);
+        navClose = findViewById(R.id.nav_close);
+        navBrowse = findViewById(R.id.nav_browse);
+        navExplore = findViewById(R.id.nav_explore);
+
+        Log.e(TAG, "setupBottomNavigation: navCreate=" + (navCreate != null) + 
+                   ", navScan=" + (navScan != null) + 
+                   ", navClose=" + (navClose != null) + 
+                   ", navBrowse=" + (navBrowse != null) + 
+                   ", navExplore=" + (navExplore != null));
+
+        navCreateIcon = findViewById(R.id.nav_create_icon);
+        navScanIcon = findViewById(R.id.nav_scan_icon);
+        navCloseIcon = findViewById(R.id.nav_close_icon_preview);
+        navBrowseIcon = findViewById(R.id.nav_browse_icon);
+        navExploreIcon = findViewById(R.id.nav_explore_icon);
+
+        navCreateCapsule = findViewById(R.id.nav_create_capsule);
+        navScanCapsule = findViewById(R.id.nav_scan_capsule);
+        navCloseCapsule = findViewById(R.id.nav_close_capsule);
+        navBrowseCapsule = findViewById(R.id.nav_browse_capsule);
+        navExploreCapsule = findViewById(R.id.nav_explore_capsule);
+
+        navCreateLabel = findViewById(R.id.nav_create_label);
+        navScanLabel = findViewById(R.id.nav_scan_label);
+        navCloseLabel = findViewById(R.id.nav_close_label);
+        navBrowseLabel = findViewById(R.id.nav_browse_label);
+        navExploreLabel = findViewById(R.id.nav_explore_label);
+
+        navCreateDot = findViewById(R.id.nav_create_dot);
+        navScanDot = findViewById(R.id.nav_scan_dot);
+        navCloseDot = findViewById(R.id.nav_close_dot);
+        navBrowseDot = findViewById(R.id.nav_browse_dot);
+        navExploreDot = findViewById(R.id.nav_explore_dot);
+
+        captureContainer = findViewById(R.id.capture_container);
+        lensesCarousel = findViewById(R.id.lenses_carousel);
+        filterNameIndicator = findViewById(R.id.filter_name_indicator);
+
+        mapWebView = findViewById(R.id.map_webview);
+        if (mapWebView != null) {
+            mapWebView.getSettings().setJavaScriptEnabled(true);
+            mapWebView.getSettings().setDomStorageEnabled(true);
+            mapWebView.getSettings().setAllowFileAccess(true);
+            mapWebView.getSettings().setAllowContentAccess(true);
+            mapWebView.getSettings().setAllowFileAccessFromFileURLs(true);
+            mapWebView.getSettings().setAllowUniversalAccessFromFileURLs(true);
+            mapWebView.setWebViewClient(new WebViewClient());
+            mapWebView.loadUrl("file:///android_asset/map_index.html");
+        }
+
+        ViewPager2 spotlightViewPager = findViewById(R.id.spotlight_viewpager);
+        if (spotlightViewPager != null) {
+            if (spotlightItems.isEmpty()) {
+                spotlightItems.add(new SpotlightItem("@alex_snaps", "Trying out the new custom filters on SnapTake! #aesthetic #camera", "🎵 Original Sound - alex_snaps", "2.4k", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"));
+                spotlightItems.add(new SpotlightItem("@coding_ninja", "Procedural graphics render in real-time Android! 🚀 #dev #code", "🎵 Synth Wave Mix", "15.8k", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4"));
+                spotlightItems.add(new SpotlightItem("@travel_bug", "Sunset in Santorini is just magical... 🌅 #santorini #travel", "🎵 Chill Vibes Only", "8.9k", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4"));
+            }
+            SpotlightAdapter adapter = new SpotlightAdapter(this, spotlightItems);
+            spotlightViewPager.setAdapter(adapter);
+        }
+        
+        if (navCreate != null) navCreate.setOnClickListener(v -> switchTab(1));
+        if (navScan != null) navScan.setOnClickListener(v -> switchTab(2));
+        if (navClose != null) navClose.setOnClickListener(v -> switchTab(3));
+        if (navBrowse != null) navBrowse.setOnClickListener(v -> switchTab(4));
+        if (navExplore != null) navExplore.setOnClickListener(v -> switchTab(5));
+
+        // Floating shutter button: tap=photo, long-press=video
+        View shutterFab = findViewById(R.id.nav_shutter_fab);
+        if (shutterFab != null) {
+            shutterFab.setOnClickListener(v -> {
+                if (currentTab == 3) {
+                    takePhoto();
+                } else {
+                    switchTab(3);
+                }
+            });
+            shutterFab.setOnLongClickListener(v -> {
+                if (currentTab != 3) switchTab(3);
+                startVideoRecordingForSnap();
+                return true;
+            });
+        }
+    }
+
+    private void setupLocationMap() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            startLocationTracking();
+        } else {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 100);
+        }
+    }
+
+    private void startLocationTracking() {
+        if (isLocationTracking) return;
+        try {
+            LocationManager lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+            if (lm != null) {
+                locationListener = new LocationListener() {
+                    @Override
+                    public void onLocationChanged(@NonNull Location location) {
+                        updateMapCoords(location.getLatitude(), location.getLongitude());
+                        
+                        // Push real-time location to Firebase Snap Map
+                        if (locationRepo == null) {
+                            locationRepo = new LocationRepository();
+                        }
+                        locationRepo.updateLocation("currentUser", location);
+                    }
+                    @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
+                    @Override public void onProviderEnabled(@NonNull String provider) {}
+                    @Override public void onProviderDisabled(@NonNull String provider) {}
+                };
+
+                // Request location updates from GPS & Network
+                if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                    lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 5000, 10, locationListener);
+                }
+                if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                    lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5000, 10, locationListener);
+                }
+                isLocationTracking = true;
+                
+                // Fetch best last known location to show immediate results on load
+                Location lastGps = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+                Location lastNet = lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+                Location best = lastGps;
+                if (lastNet != null && (best == null || lastNet.getAccuracy() < best.getAccuracy())) {
+                    best = lastNet;
+                }
+                if (best != null) {
+                    updateMapCoords(best.getLatitude(), best.getLongitude());
+                    if (locationRepo == null) locationRepo = new LocationRepository();
+                    locationRepo.updateLocation("currentUser", best);
+                }
+                
+                // Fetch friends' live locations from Firebase and plot on map
+                if (locationRepo != null) {
+                    locationRepo.listenForLocations(locations -> {
+                        for (java.util.Map.Entry<String, LocationRepository.UserLocation> entry : locations.entrySet()) {
+                            String userId = entry.getKey();
+                            LocationRepository.UserLocation loc = entry.getValue();
+                            if (!userId.equals("currentUser") && mapWebView != null) {
+                                mapWebView.post(() -> mapWebView.loadUrl("javascript:updateLocation(" + loc.latitude + ", " + loc.longitude + ")"));
+                            }
+                        }
+                    });
+                }
+            }
+        } catch (SecurityException e) {
+            Log.e(TAG, "GPS tracking failed", e);
+        }
+    }
+
+    private void stopLocationTracking() {
+        if (!isLocationTracking) return;
+        try {
+            LocationManager lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+            if (lm != null && locationListener != null) {
+                lm.removeUpdates(locationListener);
+            }
+            isLocationTracking = false;
+        } catch (Exception e) {
+            Log.e(TAG, "GPS stop failed", e);
+        }
+    }
+
+    private void updateMapCoords(double lat, double lng) {
+        if (mapWebView != null) {
+            mapWebView.post(() -> mapWebView.loadUrl("javascript:updateLocation(" + lat + ", " + lng + ")"));
+        }
+    }
+
+    private void startSpotlightVideo(int index) {
+        // Spotlight video playback is handled dynamically inside SpotlightAdapter
+    }
+
+    private void switchTab(int tabIndex) {
+        Log.e(TAG, "switchTab: tabIndex=" + tabIndex);
+        currentTab = tabIndex;
+        View bottomNav = findViewById(R.id.bottom_nav_bar);
+        if (bottomNav != null) {
+            bottomNav.setVisibility(View.VISIBLE);
+        }
+        // 1. Reset all capsules to inactive state (transparent background, 70% white tint, visible label)
+        int inactiveColor = android.graphics.Color.parseColor("#B3FFFFFF"); // 70% White
+        int activeColor = android.graphics.Color.parseColor("#FFFC00"); // Snapchat Yellow
+
+        if (navCreateCapsule != null) navCreateCapsule.setBackgroundResource(0);
+        if (navScanCapsule != null) navScanCapsule.setBackgroundResource(0);
+        if (navCloseCapsule != null) navCloseCapsule.setBackgroundResource(0);
+        if (navBrowseCapsule != null) navBrowseCapsule.setBackgroundResource(0);
+        if (navExploreCapsule != null) navExploreCapsule.setBackgroundResource(0);
+
+        if (navCreateLabel != null) {
+            navCreateLabel.setVisibility(View.VISIBLE);
+            navCreateLabel.setTextColor(inactiveColor);
+        }
+        if (navScanLabel != null) {
+            navScanLabel.setVisibility(View.VISIBLE);
+            navScanLabel.setTextColor(inactiveColor);
+        }
+        if (navCloseLabel != null) {
+            navCloseLabel.setVisibility(View.VISIBLE);
+            navCloseLabel.setTextColor(inactiveColor);
+        }
+        if (navBrowseLabel != null) {
+            navBrowseLabel.setVisibility(View.VISIBLE);
+            navBrowseLabel.setTextColor(inactiveColor);
+        }
+        if (navExploreLabel != null) {
+            navExploreLabel.setVisibility(View.VISIBLE);
+            navExploreLabel.setTextColor(inactiveColor);
+        }
+
+        if (navCreateIcon != null) navCreateIcon.setImageTintList(android.content.res.ColorStateList.valueOf(inactiveColor));
+        if (navScanIcon != null) navScanIcon.setImageTintList(android.content.res.ColorStateList.valueOf(inactiveColor));
+        if (navCloseIcon != null) {
+            if (navCloseIcon instanceof ImageView) {
+                ((ImageView) navCloseIcon).setImageTintList(android.content.res.ColorStateList.valueOf(inactiveColor));
+            } else {
+                navCloseIcon.setBackgroundTintList(android.content.res.ColorStateList.valueOf(inactiveColor));
+            }
+        }
+        if (navBrowseIcon != null) navBrowseIcon.setImageTintList(android.content.res.ColorStateList.valueOf(inactiveColor));
+        if (navExploreIcon != null) navExploreIcon.setImageTintList(android.content.res.ColorStateList.valueOf(inactiveColor));
+
+        // 2. Set active tab to premium highlighted state (yellow capsule highlight, yellow text, yellow icon)
+        switch (tabIndex) {
+            case 1:
+                if (navCreateCapsule != null) navCreateCapsule.setBackgroundResource(R.drawable.snap_active_tab_highlight);
+                if (navCreateLabel != null) navCreateLabel.setTextColor(activeColor);
+                if (navCreateIcon != null) navCreateIcon.setImageTintList(android.content.res.ColorStateList.valueOf(activeColor));
+                break;
+            case 2:
+                if (navScanCapsule != null) navScanCapsule.setBackgroundResource(R.drawable.snap_active_tab_highlight);
+                if (navScanLabel != null) navScanLabel.setTextColor(activeColor);
+                if (navScanIcon != null) navScanIcon.setImageTintList(android.content.res.ColorStateList.valueOf(activeColor));
+                break;
+            case 3:
+                if (navCloseCapsule != null) navCloseCapsule.setBackgroundResource(R.drawable.snap_active_tab_highlight);
+                if (navCloseLabel != null) navCloseLabel.setTextColor(activeColor);
+                if (navCloseIcon != null) {
+                    if (navCloseIcon instanceof ImageView) {
+                        ((ImageView) navCloseIcon).setImageTintList(android.content.res.ColorStateList.valueOf(activeColor));
+                    } else {
+                        navCloseIcon.setBackgroundTintList(android.content.res.ColorStateList.valueOf(activeColor));
+                    }
+                }
+                break;
+            case 4:
+                if (navBrowseCapsule != null) navBrowseCapsule.setBackgroundResource(R.drawable.snap_active_tab_highlight);
+                if (navBrowseLabel != null) navBrowseLabel.setTextColor(activeColor);
+                if (navBrowseIcon != null) navBrowseIcon.setImageTintList(android.content.res.ColorStateList.valueOf(activeColor));
+                break;
+            case 5:
+                if (navExploreCapsule != null) navExploreCapsule.setBackgroundResource(R.drawable.snap_active_tab_highlight);
+                if (navExploreLabel != null) navExploreLabel.setTextColor(activeColor);
+                if (navExploreIcon != null) navExploreIcon.setImageTintList(android.content.res.ColorStateList.valueOf(activeColor));
+                break;
+        }
+
+        // Show/hide content layers
+        if (cameraLayer != null) cameraLayer.setVisibility(tabIndex == 3 ? View.VISIBLE : View.GONE);
+        if (mapLayer != null) mapLayer.setVisibility(tabIndex == 1 ? View.VISIBLE : View.GONE);
+        if (chatLayer != null) chatLayer.setVisibility(tabIndex == 2 ? View.VISIBLE : View.GONE);
+        if (storiesLayer != null) storiesLayer.setVisibility(tabIndex == 4 ? View.VISIBLE : View.GONE);
+        if (spotlightLayer != null) spotlightLayer.setVisibility(tabIndex == 5 ? View.VISIBLE : View.GONE);
+
+        // Shutter button & lenses carousel: show only on camera tab
+        updateShutterVisibility();
+        if (lensesCarousel != null) {
+            lensesCarousel.setVisibility(tabIndex == 3 ? View.VISIBLE : View.GONE);
+        }
+
+        // Feature activation per tab
+        if (tabIndex == 1) {
+            setupLocationMap();
+        } else {
+            stopLocationTracking();
+        }
+
+        if (tabIndex == 4) {
+            setupStoriesSystem();
+        }
+
+        if (tabIndex == 5) {
+            // Handled automatically by ViewPager2 page attachment in adapter
+        } else {
+            // Handled automatically by ViewPager2 page detachment in adapter
+        }
+
+        if (tabIndex == 3) {
+            startCamera();
+        } else {
+            try {
+                ProcessCameraProvider.getInstance(this).get().unbindAll();
+            } catch (Exception e) {
+                Log.e(TAG, "Unbind failed", e);
+            }
+        }
+    }
+
+    private void updateShutterVisibility() {
+        if (captureContainer != null) {
+            // Show standard white shutter button only on Camera tab (tab 3) AND when "None" (index 0) is active
+            captureContainer.setVisibility((currentTab == 3 && currentLensIndex == 0) ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    private void setupChatSystem() {
+        chatPanel = findViewById(R.id.chat_panel);
+        chatMessagesContainer = findViewById(R.id.chat_messages_container);
+        chatInput = findViewById(R.id.chat_input);
+        chatScroll = findViewById(R.id.chat_scroll);
+
+        View instantCameraBtn = findViewById(R.id.chat_btn_instant_camera);
+        if (instantCameraBtn != null) {
+            instantCameraBtn.setOnClickListener(v -> switchTab(3));
+        }
+
+        if (chatInput != null) {
+            chatInput.addTextChangedListener(new android.text.TextWatcher() {
+                @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    boolean hasText = s.toString().trim().length() > 0;
+                    View sendBtn = findViewById(R.id.chat_send_btn);
+                    View micBtn = findViewById(R.id.chat_mic_btn);
+                    View stickerBtn = findViewById(R.id.chat_sticker_btn);
+                    View attachBtn = findViewById(R.id.chat_attach_btn);
+                    
+                    if (sendBtn != null) sendBtn.setVisibility(hasText ? View.VISIBLE : View.GONE);
+                    if (micBtn != null) micBtn.setVisibility(hasText ? View.GONE : View.VISIBLE);
+                    if (stickerBtn != null) stickerBtn.setVisibility(hasText ? View.GONE : View.VISIBLE);
+                    if (attachBtn != null) attachBtn.setVisibility(hasText ? View.GONE : View.VISIBLE);
+                }
+                @Override public void afterTextChanged(android.text.Editable s) {}
+            });
+        }
+
+        View backBtn = findViewById(R.id.chat_panel_back);
+        if (backBtn != null) {
+            backBtn.setOnClickListener(v -> {
+                if (chatPanel != null) {
+                    chatPanel.animate()
+                            .translationX(chatPanel.getWidth())
+                            .setDuration(300)
+                            .withEndAction(() -> {
+                                chatPanel.setVisibility(View.GONE);
+                                View bottomNav = findViewById(R.id.bottom_nav_bar);
+                                if (bottomNav != null) bottomNav.setVisibility(View.VISIBLE);
+                            })
+                            .start();
+                }
+            });
+        }
+
+        View sendBtn = findViewById(R.id.chat_send_btn);
+        if (sendBtn != null) {
+            sendBtn.setOnClickListener(v -> sendMessage());
+        }
+
+        // Swappable identity for testing both sides
+        com.google.android.material.button.MaterialButton switchIdentityBtn = findViewById(R.id.chat_btn_switch_identity);
+        if (switchIdentityBtn != null) {
+            switchIdentityBtn.setText("Acting: You");
+            switchIdentityBtn.setOnClickListener(v -> {
+                if ("currentUser".equals(currentTestingUserId)) {
+                    currentTestingUserId = activeChatFriendId;
+                    switchIdentityBtn.setText("Acting: " + activeChatFriend);
+                    Toast.makeText(this, "Switched identity: Acting as " + activeChatFriend, Toast.LENGTH_SHORT).show();
+                } else {
+                    currentTestingUserId = "currentUser";
+                    switchIdentityBtn.setText("Acting: You");
+                    Toast.makeText(this, "Switched identity: Acting as You", Toast.LENGTH_SHORT).show();
+                }
+                if (activeChatFriendId != null && !activeChatFriendId.isEmpty()) {
+                    openChatWithFriend(activeChatFriendId, activeChatFriend);
+                }
+            });
+        }
+
+        // Setup attachment picker, stickers picker, voice note recorder
+        setupAttachmentHandling();
+        setupVoiceRecording();
+        setupGroupChatCreation();
+
+        // Chat list population
+        LinearLayout listContainer = findViewById(R.id.chat_list_container);
+        if (listContainer != null) {
+            listContainer.removeAllViews();
+            List<ChatFriend> friends = new ArrayList<>();
+            friends.add(new ChatFriend("my_ai", "My AI 👻", "Chat with My AI", "Just now", android.R.drawable.presence_online, false, 0));
+            friends.add(new ChatFriend("alex", "Alex", "Sent", "2m ago", android.R.drawable.ic_menu_send, true, 145));
+            friends.add(new ChatFriend("jessica", "Jessica", "New Chat", "10m ago", android.R.drawable.sym_action_email, false, 0));
+            friends.add(new ChatFriend("sam", "Sam", "Opened", "1h ago", android.R.drawable.presence_away, true, 38));
+            friends.add(new ChatFriend("sarah", "Sarah", "Received", "4h ago", android.R.drawable.presence_online, true, 73));
+            friends.add(new ChatFriend("david", "David", "New Snap", "1d ago", android.R.drawable.sym_action_email, false, 0));
+
+            for (ChatFriend friend : friends) {
+                View row = getLayoutInflater().inflate(R.layout.item_chat_list_row, listContainer, false);
+                
+                // Bind Avatar
+                View avatarContainer = row.findViewById(R.id.chat_row_avatar_container);
+                TextView avatarText = row.findViewById(R.id.chat_row_avatar_text);
+                if (avatarContainer != null && avatarText != null) {
+                    String emoji = "👻";
+                    String color = "#FFFC00";
+                    if (friend.id.equals("my_ai")) {
+                        emoji = "👻";
+                        color = "#9B51E0";
+                    } else if (friend.id.equals("alex")) {
+                        emoji = "👦";
+                        color = "#FF9500";
+                    } else if (friend.id.equals("jessica")) {
+                        emoji = "👧";
+                        color = "#FF2D55";
+                    } else if (friend.id.equals("sam")) {
+                        emoji = "👨";
+                        color = "#34C759";
+                    } else if (friend.id.equals("sarah")) {
+                        emoji = "👩";
+                        color = "#007AFF";
+                    } else if (friend.id.equals("david")) {
+                        emoji = "👱";
+                        color = "#AF52DE";
+                    }
+                    avatarText.setText(emoji);
+                    avatarContainer.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor(color)));
+                }
+
+                // Bind Name
+                TextView nameView = row.findViewById(R.id.chat_row_name);
+                if (nameView != null) {
+                    nameView.setText(friend.name);
+                }
+
+                // Bind Status Subtext
+                TextView statusView = row.findViewById(R.id.chat_row_status_text);
+                if (statusView != null) {
+                    statusView.setText(friend.statusText + " • " + friend.time);
+                }
+
+                // Bind Snapchat unread/read receipt icons programmatically
+                ImageView statusIcon = row.findViewById(R.id.chat_row_status_icon);
+                if (statusIcon != null) {
+                    String statusText = friend.statusText.toLowerCase();
+                    if (statusText.contains("sent") || statusText.contains("opened")) {
+                        statusIcon.setImageResource(android.R.drawable.ic_menu_send);
+                        statusIcon.setImageTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#8E8E93")));
+                    } else {
+                        // Create a rounded solid square
+                        android.graphics.drawable.GradientDrawable sq = new android.graphics.drawable.GradientDrawable();
+                        sq.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+                        sq.setCornerRadius(4 * getResources().getDisplayMetrics().density);
+                        
+                        String colorHex = "#00B6FF"; // blue for chats
+                        if (statusText.contains("snap") || statusText.contains("received")) {
+                            colorHex = "#FF2D55"; // red for snaps
+                        } else if (statusText.contains("video")) {
+                            colorHex = "#AF52DE"; // purple for video snaps
+                        }
+                        sq.setColor(android.graphics.Color.parseColor(colorHex));
+                        statusIcon.setImageDrawable(sq);
+                    }
+                }
+
+                // Bind Streaks
+                View streakContainer = row.findViewById(R.id.chat_row_streak_container);
+                TextView streakText = row.findViewById(R.id.chat_row_streak_text);
+                if (streakContainer != null && streakText != null) {
+                    if (friend.hasStreaks) {
+                        streakText.setText("🔥 " + friend.streaksCount);
+                        streakContainer.setVisibility(View.VISIBLE);
+                    } else {
+                        streakContainer.setVisibility(View.GONE);
+                    }
+                }
+
+                // Quick camera trigger
+                View cameraBtn = row.findViewById(R.id.chat_row_btn_camera);
+                if (cameraBtn != null) {
+                    cameraBtn.setOnClickListener(v -> switchTab(3));
+                }
+
+                // Separator View
+                View sep = new View(this);
+                sep.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1));
+                sep.setBackgroundColor(android.graphics.Color.parseColor("#15FFFFFF"));
+
+                row.setOnClickListener(v -> openChatWithFriend(friend.id, friend.name));
+
+                listContainer.addView(row);
+                listContainer.addView(sep);
+            }
+        }
+
+        // Conversation search UI wiring
+        EditText searchInput = findViewById(R.id.chat_search_input);
+        if (searchInput != null) {
+            searchInput.addTextChangedListener(new android.text.TextWatcher() {
+                @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    searchQuery = s.toString().trim();
+                    populateMessagesList(activeThreadMessages);
+                }
+                @Override public void afterTextChanged(android.text.Editable s) {}
+            });
+        }
+
+        ImageButton searchClose = findViewById(R.id.chat_search_close);
+        if (searchClose != null) {
+            searchClose.setOnClickListener(v -> {
+                searchQuery = null;
+                if (searchInput != null) searchInput.setText("");
+                View searchContainer = findViewById(R.id.chat_search_container);
+                if (searchContainer != null) searchContainer.setVisibility(View.GONE);
+                populateMessagesList(activeThreadMessages);
+            });
+        }
+
+
+
+        // Pinned Banner close button
+        ImageButton pinnedClose = findViewById(R.id.chat_pinned_close);
+        View pinnedBanner = findViewById(R.id.chat_pinned_banner);
+        if (pinnedClose != null && pinnedBanner != null) {
+            pinnedClose.setOnClickListener(v -> pinnedBanner.setVisibility(View.GONE));
+        }
+
+        // Reply preview close button
+        ImageView replyClose = findViewById(R.id.chat_reply_preview_close);
+        if (replyClose != null) {
+            replyClose.setOnClickListener(v -> clearReplyPreview());
+        }
+    }
+
+    private String getMyAIResponse(String userMsg) {
+        userMsg = userMsg.toLowerCase().trim();
+        if (userMsg.contains("hello") || userMsg.contains("hi") || userMsg.contains("hey")) {
+            return "Hey there! I'm SnapTake My AI 👻. How can I help you snap today?";
+        } else if (userMsg.contains("name")) {
+            return "My name is SnapTake My AI, your custom chatbot companion built into the app!";
+        } else if (userMsg.contains("filter") || userMsg.contains("lens")) {
+            return "Just swipe left or right directly on the viewfinder to cycle color filters like Vintage and Retro! Tap on faces to use Neon Devil or Angel lenses!";
+        } else if (userMsg.contains("joke")) {
+            return "Why did the camera stop working? It just couldn't focus! 📸";
+        } else if (userMsg.contains("reels") || userMsg.contains("spotlight")) {
+            return "Click the Spotlight tab at the bottom right. You can watch short video clips and swipe up/down!";
+        } else if (userMsg.contains("location") || userMsg.contains("map")) {
+            return "Tap the Map tab (far left) to load a dark street map centered right on your GPS location! 🗺️";
+        } else {
+            return "Cool! Let me know if you want to know about SnapTake filters, GPS maps, or custom AR face lenses! 👻";
+        }
+    }
+
+    private List<ChatRepository.ChatMessage> activeThreadMessages = new ArrayList<>();
+
+    private void openChatWithFriend(String friendName) {
+        openChatWithFriend(friendName.toLowerCase().replace(" ", "_"), friendName);
+    }
+
+    private void openChatWithFriend(String friendId, String friendName) {
+        activeChatFriend = friendName;
+        activeChatFriendId = friendId;
+        TextView title = findViewById(R.id.chat_panel_title);
+        if (title != null) title.setText(friendName);
+
+        // Configure Snapchat-style Bitmoji avatar dynamically
+        View avatarContainer = findViewById(R.id.chat_avatar_container);
+        TextView avatarText = findViewById(R.id.chat_avatar_text);
+        if (avatarContainer != null && avatarText != null) {
+            String emoji = "👻";
+            String color = "#FFFC00"; // default Snapchat yellow
+            if (friendId.equals("my_ai")) {
+                emoji = "👻";
+                color = "#9B51E0"; // purple for My AI
+            } else if (friendId.equals("alex")) {
+                emoji = "👦";
+                color = "#FF9500";
+            } else if (friendId.equals("jessica")) {
+                emoji = "👧";
+                color = "#FF2D55";
+            } else if (friendId.equals("sam")) {
+                emoji = "👨";
+                color = "#34C759";
+            } else if (friendId.equals("sarah")) {
+                emoji = "👩";
+                color = "#007AFF";
+            } else if (friendId.equals("david")) {
+                emoji = "👱";
+                color = "#AF52DE";
+            } else {
+                emoji = "👥"; // group icon
+                color = "#00B6FF";
+            }
+            avatarText.setText(emoji);
+            avatarContainer.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor(color)));
+            avatarContainer.setOnClickListener(v -> {
+                View searchContainer = findViewById(R.id.chat_search_container);
+                if (searchContainer != null) {
+                    searchContainer.setVisibility(searchContainer.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
+                }
+            });
+        }
+
+        // Check if group chat session
+        isGroupChat = friendId.contains("group") || friendName.contains(",") || friendName.contains("Group");
+
+        if (chatRepo == null) chatRepo = new ChatRepository();
+        
+        // Typing indicator sync
+        TextView typingIndicator = findViewById(R.id.chat_typing_indicator);
+        if (typingIndicator != null) {
+            chatRepo.listenToTypingStatus(friendId, new com.google.firebase.database.ValueEventListener() {
+                @Override
+                public void onDataChange(@NonNull com.google.firebase.database.DataSnapshot snapshot) {
+                    String typingTo = snapshot.getValue(String.class);
+                    runOnUiThread(() -> {
+                        if (currentTestingUserId.equals(typingTo)) {
+                            typingIndicator.setText(friendName + " is typing...");
+                            typingIndicator.setVisibility(View.VISIBLE);
+                        } else {
+                            typingIndicator.setVisibility(View.GONE);
+                        }
+                    });
+                }
+                @Override public void onCancelled(@NonNull com.google.firebase.database.DatabaseError error) {}
+            });
+        }
+
+        // Live status watch dot
+        if (chatRepo != null && !isGroupChat) {
+            chatRepo.listenToOnlineStatus(friendId, new com.google.firebase.database.ValueEventListener() {
+                @Override
+                public void onDataChange(@NonNull com.google.firebase.database.DataSnapshot snapshot) {
+                    Boolean isOnline = snapshot.child("online").getValue(Boolean.class);
+                    runOnUiThread(() -> {
+                        if (title != null) {
+                            title.setTextColor(isOnline != null && isOnline ? 
+                                    android.graphics.Color.GREEN : android.graphics.Color.WHITE);
+                        }
+                    });
+                }
+                @Override public void onCancelled(@NonNull com.google.firebase.database.DatabaseError error) {}
+            });
+        }
+
+        if (chatMessagesContainer != null) {
+            chatMessagesContainer.removeAllViews();
+            
+            if (isGroupChat) {
+                chatRepo.listenForGroupMessages(friendId, messages -> runOnUiThread(() -> populateMessagesList(messages)));
+            } else {
+                chatRepo.listenForMessages("currentUser", friendId, messages -> runOnUiThread(() -> populateMessagesList(messages)));
+            }
+        }
+
+        // Wire input typing triggers
+        if (chatInput != null) {
+            chatInput.addTextChangedListener(new android.text.TextWatcher() {
+                private final Handler typingHandler = new Handler(Looper.getMainLooper());
+                private Runnable typingRunnable;
+
+                @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    if (typingRunnable != null) {
+                        typingHandler.removeCallbacks(typingRunnable);
+                    }
+                    String targetUser = currentTestingUserId.equals("currentUser") ? activeChatFriendId : "currentUser";
+                    chatRepo.setTypingStatus(currentTestingUserId, targetUser);
+
+                    typingRunnable = () -> chatRepo.setTypingStatus(currentTestingUserId, "none");
+                    typingHandler.postDelayed(typingRunnable, 2000);
+                }
+                @Override public void afterTextChanged(android.text.Editable s) {}
+            });
+        }
+
+        if (chatPanel != null) {
+            chatPanel.setVisibility(View.VISIBLE);
+            View bottomNav = findViewById(R.id.bottom_nav_bar);
+            if (bottomNav != null) bottomNav.setVisibility(View.GONE);
+
+            chatPanel.setTranslationX(chatPanel.getWidth());
+            chatPanel.animate()
+                    .translationX(0)
+                    .setDuration(300)
+                    .start();
+        }
+    }
+
+    private void populateMessagesList(List<ChatRepository.ChatMessage> messages) {
+        activeThreadMessages = messages;
+        if (chatMessagesContainer == null) return;
+        chatMessagesContainer.removeAllViews();
+
+        for (ChatRepository.ChatMessage msg : messages) {
+            // Apply conversation keyword search filter
+            if (searchQuery != null && !searchQuery.isEmpty()) {
+                if (msg.message == null || !msg.message.toLowerCase().contains(searchQuery.toLowerCase())) {
+                    continue;
+                }
+            }
+
+            boolean isMe = msg.sender.equals(currentTestingUserId);
+            View bubble = getLayoutInflater().inflate(
+                    isMe ? R.layout.item_chat_bubble_sent : R.layout.item_chat_bubble_received, 
+                    chatMessagesContainer, 
+                    false
+            );
+
+            // Bind text
+            TextView textVal = bubble.findViewById(R.id.chat_text);
+            if (textVal != null) {
+                if (msg.message != null && !msg.message.isEmpty()) {
+                    textVal.setText(msg.message);
+                    textVal.setVisibility(View.VISIBLE);
+                } else {
+                    textVal.setVisibility(View.GONE);
+                }
+            }
+
+            // Bind sender label (Snapchat-style name tag)
+            TextView senderLabel = bubble.findViewById(R.id.chat_sender);
+            if (senderLabel != null) {
+                senderLabel.setText(isMe ? "You" : getFriendlySenderName(msg.sender));
+                senderLabel.setTextColor(isMe ? android.graphics.Color.parseColor("#00B6FF") : android.graphics.Color.parseColor("#FF00E5"));
+                senderLabel.setVisibility(View.VISIBLE);
+            }
+
+            // Snapchat-style Saved Message Highlight
+            View savedIndicator = bubble.findViewById(R.id.chat_saved_indicator);
+            View bubbleMain = bubble.findViewById(R.id.chat_bubble_main);
+            if (savedIndicator != null) {
+                savedIndicator.setVisibility(msg.isPinned ? View.VISIBLE : View.GONE);
+                savedIndicator.setBackgroundColor(isMe ? android.graphics.Color.parseColor("#00B6FF") : android.graphics.Color.parseColor("#FF00E5"));
+            }
+            if (bubbleMain != null) {
+                if (msg.isPinned) {
+                    bubbleMain.setBackgroundResource(R.drawable.glass_rec_pill);
+                    bubbleMain.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#2A2A38")));
+                    bubbleMain.setPadding(20, 12, 20, 12);
+                } else {
+                    bubbleMain.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+                    bubbleMain.setPadding(0, 0, 0, 0);
+                }
+            }
+
+            // Bind time
+            TextView timeVal = bubble.findViewById(R.id.chat_time);
+            if (timeVal != null) {
+                java.util.Date date = new java.util.Date(msg.timestamp);
+                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault());
+                timeVal.setText(sdf.format(date));
+            }
+
+            // Bind ticks/status
+            ImageView ticks = bubble.findViewById(R.id.chat_status_ticks);
+            if (ticks != null) {
+                if ("read".equals(msg.status)) {
+                    ticks.setImageResource(android.R.drawable.checkbox_on_background);
+                    ticks.setImageTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#00F2FF")));
+                } else if ("delivered".equals(msg.status)) {
+                    ticks.setImageResource(android.R.drawable.checkbox_on_background);
+                    ticks.setImageTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#80FFFFFF")));
+                } else {
+                    ticks.setImageResource(android.R.drawable.checkbox_off_background);
+                    ticks.setImageTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#80FFFFFF")));
+                }
+            }
+
+            // Bind images
+            ImageView img = bubble.findViewById(R.id.chat_image);
+            if (img != null) {
+                if (("photo".equals(msg.mediaType) || "sticker".equals(msg.mediaType) || "gif".equals(msg.mediaType)) && msg.mediaUrl != null) {
+                    img.setVisibility(View.VISIBLE);
+                    if (msg.mediaUrl.startsWith("content://") || msg.mediaUrl.startsWith("file://")) {
+                        img.setImageURI(Uri.parse(msg.mediaUrl));
+                    } else {
+                        img.setImageResource(android.R.drawable.ic_menu_gallery);
+                    }
+                    img.setOnClickListener(v -> showFullscreenImage(msg.mediaUrl));
+                } else {
+                    img.setVisibility(View.GONE);
+                }
+            }
+
+            // Bind videos
+            View videoContainer = bubble.findViewById(R.id.chat_video_container);
+            ImageView videoThumb = bubble.findViewById(R.id.chat_video_thumbnail);
+            if (videoContainer != null && videoThumb != null) {
+                if ("video".equals(msg.mediaType) && msg.mediaUrl != null) {
+                    videoContainer.setVisibility(View.VISIBLE);
+                    videoThumb.setImageResource(android.R.drawable.ic_menu_slideshow);
+                    videoContainer.setOnClickListener(v -> showFullscreenVideo(msg.mediaUrl));
+                } else {
+                    videoContainer.setVisibility(View.GONE);
+                }
+            }
+
+            // Bind Voice Notes player
+            View voiceContainer = bubble.findViewById(R.id.chat_voice_container);
+            ImageButton voicePlay = bubble.findViewById(R.id.chat_voice_play_btn);
+            ProgressBar voiceProgress = bubble.findViewById(R.id.chat_voice_progress);
+            TextView voiceDuration = bubble.findViewById(R.id.chat_voice_duration);
+            if (voiceContainer != null && voicePlay != null && voiceProgress != null && voiceDuration != null) {
+                if ("voice".equals(msg.mediaType) && msg.mediaUrl != null) {
+                    voiceContainer.setVisibility(View.VISIBLE);
+                    voiceDuration.setText(msg.mediaDuration > 0 ? (msg.mediaDuration / 60) + ":" + String.format("%02d", msg.mediaDuration % 60) : "0:05");
+                    voiceProgress.setProgress(0);
+                    voicePlay.setOnClickListener(v -> playVoiceNote(msg.mediaUrl, voicePlay, voiceProgress, voiceDuration));
+                } else {
+                    voiceContainer.setVisibility(View.GONE);
+                }
+            }
+
+            // Bind reply header
+            View replyHeader = bubble.findViewById(R.id.chat_reply_container);
+            TextView replySender = bubble.findViewById(R.id.chat_reply_sender);
+            TextView replyText = bubble.findViewById(R.id.chat_reply_text);
+            if (replyHeader != null && replySender != null && replyText != null) {
+                if (msg.replyToId != null && !msg.replyToId.isEmpty()) {
+                    replyHeader.setVisibility(View.VISIBLE);
+                    String parentText = "Message deleted";
+                    String parentSender = "Unknown";
+                    for (ChatRepository.ChatMessage pm : messages) {
+                        if (pm.id.equals(msg.replyToId)) {
+                            parentText = pm.message != null && !pm.message.isEmpty() ? pm.message : "[" + pm.mediaType + " Attachment]";
+                            parentSender = getFriendlySenderName(pm.sender);
+                            break;
+                        }
+                    }
+                    replySender.setText(parentSender);
+                    replyText.setText(parentText);
+                } else {
+                    replyHeader.setVisibility(View.GONE);
+                }
+            }
+
+            // Bind reactions
+            LinearLayout reactionsLayout = bubble.findViewById(R.id.chat_reactions_layout);
+            if (reactionsLayout != null) {
+                if (msg.reactions != null && !msg.reactions.isEmpty()) {
+                    reactionsLayout.setVisibility(View.VISIBLE);
+                    reactionsLayout.removeAllViews();
+                    for (java.util.Map.Entry<String, String> entry : msg.reactions.entrySet()) {
+                        TextView emojiText = new TextView(this);
+                        emojiText.setText(entry.getValue());
+                        emojiText.setTextSize(12);
+                        emojiText.setPadding(4, 0, 4, 0);
+                        reactionsLayout.addView(emojiText);
+                    }
+                } else {
+                    reactionsLayout.setVisibility(View.GONE);
+                }
+            }
+
+            // Long Press Options Dialog
+            bubble.setOnLongClickListener(v -> {
+                showChatOptionsDialog(msg);
+                return true;
+            });
+
+            // Mark delivered/read receipts:
+            if (!isMe && !"read".equals(msg.status)) {
+                chatRepo.updateMessageStatus(msg.id, "read");
+            }
+
+            // Display Pin references dynamically
+            View pinnedBanner = findViewById(R.id.chat_pinned_banner);
+            TextView pinnedText = findViewById(R.id.chat_pinned_text);
+            if (pinnedBanner != null && pinnedText != null) {
+                ChatRepository.ChatMessage pinnedMsg = null;
+                for (ChatRepository.ChatMessage m : messages) {
+                    if (m.isPinned) {
+                        pinnedMsg = m;
+                        break;
+                    }
+                }
+                if (pinnedMsg != null) {
+                    pinnedText.setText(pinnedMsg.message != null && !pinnedMsg.message.isEmpty() ? pinnedMsg.message : "[" + pinnedMsg.mediaType + "]");
+                    pinnedBanner.setVisibility(View.VISIBLE);
+                } else {
+                    pinnedBanner.setVisibility(View.GONE);
+                }
+            }
+
+            chatMessagesContainer.addView(bubble);
+        }
+
+        // Auto Scroll to bottom
+        if (chatScroll != null) {
+            chatScroll.post(() -> chatScroll.fullScroll(View.FOCUS_DOWN));
+        }
+    }
+
+    private String getFriendlySenderName(String senderId) {
+        if ("currentUser".equals(senderId)) return "You";
+        if ("peerUser".equals(senderId) || "alex".equals(senderId) || "alexUser".equals(senderId)) return "Alex";
+        if ("jessica".equals(senderId) || "jessicaUser".equals(senderId)) return "Jessica";
+        if ("sam".equals(senderId) || "samUser".equals(senderId)) return "Sam";
+        if ("sarah".equals(senderId) || "sarahUser".equals(senderId)) return "Sarah";
+        if ("david".equals(senderId) || "davidUser".equals(senderId)) return "David";
+        if ("my_ai".equals(senderId)) return "My AI 👻";
+        return senderId;
+    }
+
+    private void addChatMessageToUI(String sender, String message, boolean isMe) {
+        // Obsolete manually generated views: layout is handled dynamically by populateMessagesList
+    }
+
+    private void sendMessage() {
+        if (chatInput == null || chatInput.getText().toString().trim().isEmpty()) return;
+        String text = chatInput.getText().toString().trim();
+        
+        if (chatRepo == null) chatRepo = new ChatRepository();
+        String senderId = currentTestingUserId;
+        String receiverId = isGroupChat ? activeChatFriendId : (currentTestingUserId.equals("currentUser") ? activeChatFriendId : "currentUser");
+        chatRepo.sendMessage(senderId, receiverId, text, null, "text", replyToMessageId);
+        
+        chatInput.setText("");
+        clearReplyPreview();
+
+        // Simulate reply if talking to My AI
+        if (activeChatFriendId != null && activeChatFriendId.equals("my_ai")) {
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                String reply = getMyAIResponse(text);
+                chatRepo.sendMessage("my_ai", "currentUser", reply, null, "text", null);
+            }, 1500);
+        }
+    }
+
+    // Voice Notes seekable Media playback
+    private MediaPlayer voicePlayer;
+    private Handler voiceHandler = new Handler(Looper.getMainLooper());
+    private Runnable voiceUpdater;
+
+    private void playVoiceNote(String filePath, ImageButton playBtn, ProgressBar progress, TextView durationText) {
+        if (voicePlayer != null) {
+            voicePlayer.release();
+            voicePlayer = null;
+        }
+        if (voiceUpdater != null) {
+            voiceHandler.removeCallbacks(voiceUpdater);
+        }
+
+        try {
+            voicePlayer = new MediaPlayer();
+            voicePlayer.setDataSource(filePath);
+            voicePlayer.prepare();
+            voicePlayer.start();
+            playBtn.setImageResource(android.R.drawable.ic_media_pause);
+
+            progress.setMax(voicePlayer.getDuration());
+            voiceUpdater = new Runnable() {
+                @Override
+                public void run() {
+                    if (voicePlayer != null && voicePlayer.isPlaying()) {
+                        progress.setProgress(voicePlayer.getCurrentPosition());
+                        int seconds = voicePlayer.getCurrentPosition() / 1000;
+                        durationText.setText((seconds / 60) + ":" + String.format("%02d", seconds % 60));
+                        voiceHandler.postDelayed(this, 100);
+                    } else {
+                        playBtn.setImageResource(android.R.drawable.ic_media_play);
+                        progress.setProgress(0);
+                    }
+                }
+            };
+            voiceHandler.post(voiceUpdater);
+
+            voicePlayer.setOnCompletionListener(mp -> {
+                playBtn.setImageResource(android.R.drawable.ic_media_play);
+                progress.setProgress(0);
+                voiceHandler.removeCallbacks(voiceUpdater);
+            });
+
+        } catch (Exception e) {
+            Toast.makeText(this, "Playback error", Toast.LENGTH_SHORT).show();
+            Log.e(TAG, "Voice playback failed", e);
+        }
+    }
+
+    // Voice Notes MicroRecorder
+    private MediaRecorder voiceRecorder;
+    private File voiceFile;
+    private long voiceRecordStartTime;
+
+    private void setupVoiceRecording() {
+        ImageButton micBtn = findViewById(R.id.chat_mic_btn);
+        if (micBtn == null) return;
+
+        micBtn.setOnTouchListener((v, event) -> {
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO}, 200);
+                        return false;
+                    }
+                    startRecordingVoice();
+                    micBtn.setImageTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.RED));
+                    return true;
+
+                case MotionEvent.ACTION_UP:
+                    stopRecordingVoice();
+                    micBtn.setImageTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE));
+                    return true;
+            }
+            return false;
+        });
+    }
+
+    private void startRecordingVoice() {
+        try {
+            voiceFile = File.createTempFile("voice_", ".3gp", getCacheDir());
+            voiceRecorder = new MediaRecorder();
+            voiceRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+            voiceRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
+            voiceRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
+            voiceRecorder.setOutputFile(voiceFile.getAbsolutePath());
+            voiceRecorder.prepare();
+            voiceRecorder.start();
+            voiceRecordStartTime = System.currentTimeMillis();
+            Toast.makeText(this, "Recording voice note...", Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to start voice recording", e);
+            Toast.makeText(this, "Mic in use or initialization failed", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void stopRecordingVoice() {
+        if (voiceRecorder == null) return;
+        try {
+            voiceRecorder.stop();
+            voiceRecorder.release();
+            voiceRecorder = null;
+
+            long duration = (System.currentTimeMillis() - voiceRecordStartTime) / 1000;
+            if (duration < 1) {
+                Toast.makeText(this, "Voice note too short", Toast.LENGTH_SHORT).show();
+                if (voiceFile != null && voiceFile.exists()) {
+                    voiceFile.delete();
+                }
+                return;
+            }
+
+            if (chatRepo == null) chatRepo = new ChatRepository();
+            String receiverId = isGroupChat ? activeChatFriend : "peerUser";
+            chatRepo.sendMessage(currentTestingUserId, receiverId, "", voiceFile.getAbsolutePath(), "voice", replyToMessageId, duration);
+            clearReplyPreview();
+
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to stop voice recording", e);
+        }
+    }
+
+    // Dialog option selector
+    private void showChatOptionsDialog(ChatRepository.ChatMessage msg) {
+        String[] options = {"Reply", "Pin Message", "Delete Message", "Forward Message", "React with 👍", "React with ❤️", "React with 😂", "React with 😮", "React with 😢", "React with 🙏"};
+        
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Message Options");
+        builder.setItems(options, (dialog, which) -> {
+            String choice = options[which];
+            if ("Reply".equals(choice)) {
+                setupReplyState(msg);
+            } else if ("Pin Message".equals(choice)) {
+                chatRepo.pinMessage(msg.id, true);
+                Toast.makeText(this, "Message pinned!", Toast.LENGTH_SHORT).show();
+            } else if ("Delete Message".equals(choice)) {
+                chatRepo.deleteMessage(msg.id);
+                Toast.makeText(this, "Message deleted", Toast.LENGTH_SHORT).show();
+            } else if ("Forward Message".equals(choice)) {
+                showForwardMessageDialog(msg);
+            } else {
+                String emoji = choice.substring(choice.length() - 2).trim();
+                chatRepo.toggleReaction(msg.id, currentTestingUserId, emoji);
+            }
+        });
+        builder.show();
+    }
+
+    private void setupReplyState(ChatRepository.ChatMessage msg) {
+        replyToMessageId = msg.id;
+        replyToMessageText = msg.message != null && !msg.message.isEmpty() ? msg.message : "[" + msg.mediaType + " attachment]";
+        
+        RelativeLayout replyPreviewBar = findViewById(R.id.chat_reply_preview_bar);
+        TextView replyPreviewTitle = findViewById(R.id.chat_reply_preview_title);
+        TextView replyPreviewText = findViewById(R.id.chat_reply_preview_text);
+        
+        if (replyPreviewBar != null && replyPreviewTitle != null && replyPreviewText != null) {
+            String senderName = msg.sender.equals(currentTestingUserId) ? "You" : "Alex";
+            replyPreviewTitle.setText("Replying to " + senderName);
+            replyPreviewText.setText(replyToMessageText);
+            replyPreviewBar.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void clearReplyPreview() {
+        replyToMessageId = null;
+        replyToMessageText = null;
+        RelativeLayout replyPreviewBar = findViewById(R.id.chat_reply_preview_bar);
+        if (replyPreviewBar != null) {
+            replyPreviewBar.setVisibility(View.GONE);
+        }
+    }
+
+    private void showForwardMessageDialog(ChatRepository.ChatMessage msg) {
+        String[] friends = {"Jessica", "Sam", "Sarah", "David"};
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Forward Message to:");
+        builder.setItems(friends, (dialog, which) -> {
+            String target = friends[which];
+            if (chatRepo == null) chatRepo = new ChatRepository();
+            chatRepo.sendMessage(currentTestingUserId, target, msg.message, msg.mediaUrl, msg.mediaType, null);
+            Toast.makeText(this, "Message forwarded to " + target, Toast.LENGTH_SHORT).show();
+        });
+        builder.show();
+    }
+
+    // Setup media & stickers picker dialogue options
+    private void setupAttachmentHandling() {
+        ImageButton attachBtn = findViewById(R.id.chat_attach_btn);
+        if (attachBtn != null) {
+            attachBtn.setOnClickListener(v -> {
+                String[] options = {"Photo Attachment (Camera Mock)", "Video Attachment (Camera Mock)", "Choose Image from Gallery", "Choose Video from Gallery"};
+                AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                builder.setTitle("Send Attachment");
+                builder.setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        sendMockMediaMessage("photo", "https://picsum.photos/400/400");
+                    } else if (which == 1) {
+                        sendMockMediaMessage("video", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4");
+                    } else if (which == 2) {
+                        sendMockMediaMessage("photo", "https://picsum.photos/400/400?random=" + System.currentTimeMillis());
+                    } else {
+                        sendMockMediaMessage("video", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4");
+                    }
+                });
+                builder.show();
+            });
+        }
+
+        ImageButton stickerBtn = findViewById(R.id.chat_sticker_btn);
+        if (stickerBtn != null) {
+            stickerBtn.setOnClickListener(v -> {
+                String[] stickers = {"👻 Cool Ghost Sticker", "⭐ Snap Star Sticker", "📸 Camera Lens Sticker", "🎬 Funny Movie GIF", "🐱 Dancing Cat GIF"};
+                AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                builder.setTitle("Send Stickers / GIFs");
+                builder.setItems(stickers, (dialog, which) -> {
+                    String selected = stickers[which];
+                    if (selected.contains("GIF")) {
+                        sendMockMediaMessage("gif", selected);
+                    } else {
+                        sendMockMediaMessage("sticker", selected);
+                    }
+                });
+                builder.show();
+            });
+        }
+    }
+
+    private void sendMockMediaMessage(String type, String url) {
+        if (chatRepo == null) chatRepo = new ChatRepository();
+        String receiverId = isGroupChat ? activeChatFriend : "peerUser";
+        String messageText = type.equals("sticker") || type.equals("gif") ? url : "";
+        chatRepo.sendMessage(currentTestingUserId, receiverId, messageText, url, type, replyToMessageId);
+        clearReplyPreview();
+    }
+
+    // Group chat creation dialogue popup
+    private void setupGroupChatCreation() {
+        ImageView createGroupBtn = findViewById(R.id.btn_create_group);
+        if (createGroupBtn != null) {
+            createGroupBtn.setOnClickListener(v -> {
+                String[] friends = {"Alex", "Jessica", "Sam", "Sarah"};
+                boolean[] checked = {false, false, false, false};
+                
+                AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                builder.setTitle("Create Group Chat");
+                builder.setMultiChoiceItems(friends, checked, (dialog, which, isChecked) -> {
+                    checked[which] = isChecked;
+                });
+                builder.setPositiveButton("Create", (dialog, which) -> {
+                    List<String> selectedMembers = new ArrayList<>();
+                    selectedMembers.add("currentUser");
+                    StringBuilder groupName = new StringBuilder("You");
+                    for (int i = 0; i < friends.length; i++) {
+                        if (checked[i]) {
+                            selectedMembers.add(friends[i].toLowerCase() + "User");
+                            groupName.append(", ").append(friends[i]);
+                        }
+                    }
+                    groupName.append(" Group");
+                    
+                    if (selectedMembers.size() < 2) {
+                        Toast.makeText(this, "Please select at least 1 friend to create a group", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    if (chatRepo == null) chatRepo = new ChatRepository();
+                    String groupId = chatRepo.createGroupChat(groupName.toString(), selectedMembers);
+                    Toast.makeText(this, "Created Group: " + groupName, Toast.LENGTH_SHORT).show();
+                    
+                    LinearLayout listContainer = findViewById(R.id.chat_list_container);
+                    if (listContainer != null) {
+                        appendFriendRow(listContainer, groupId, groupName.toString(), "New Group", "Just now", android.R.drawable.ic_menu_share);
+                    }
+                });
+                builder.setNegativeButton("Cancel", null);
+                builder.show();
+            });
+        }
+    }
+
+    private void appendFriendRow(LinearLayout container, String id, String name, String status, String time, int iconRes) {
+        View row = getLayoutInflater().inflate(android.R.layout.activity_list_item, container, false);
+        TextView text1 = row.findViewById(android.R.id.text1);
+        TextView text2 = row.findViewById(android.R.id.text2);
+        ImageView icon = row.findViewById(android.R.id.icon);
+
+        if (text1 != null) {
+            text1.setText(name);
+            text1.setTextColor(android.graphics.Color.WHITE);
+            text1.setTextSize(16);
+            text1.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        }
+        if (text2 != null) {
+            text2.setText(status + " • " + time);
+            text2.setTextColor(android.graphics.Color.parseColor("#B3FFFFFF"));
+            text2.setTextSize(12);
+        }
+        if (icon != null) {
+            icon.setImageResource(iconRes);
+            icon.setImageTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#FFCC00")));
+        }
+        row.setPadding(32, 24, 32, 24);
+
+        View sep = new View(this);
+        sep.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1));
+        sep.setBackgroundColor(android.graphics.Color.parseColor("#15FFFFFF"));
+
+        row.setOnClickListener(v -> openChatWithFriend(id, name));
+
+        container.addView(row, 0); // Insert at top
+        container.addView(sep, 1);
+    }
+
+    private void showFullscreenImage(String url) {
+        View overlay = findViewById(R.id.story_viewer_overlay);
+        ImageView img = findViewById(R.id.story_viewer_image);
+        VideoView vid = findViewById(R.id.story_viewer_video);
+        View closeBtn = findViewById(R.id.story_viewer_close);
+        
+        if (overlay == null || img == null || vid == null) return;
+        overlay.setVisibility(View.VISIBLE);
+        vid.setVisibility(View.GONE);
+        img.setVisibility(View.VISIBLE);
+
+        if (url.startsWith("content://") || url.startsWith("file://") || url.startsWith("http")) {
+            img.setImageURI(Uri.parse(url));
+        } else {
+            img.setImageResource(android.R.drawable.ic_menu_gallery);
+        }
+
+        if (closeBtn != null) {
+            closeBtn.setOnClickListener(v -> overlay.setVisibility(View.GONE));
+        }
+    }
+
+    private void showFullscreenVideo(String url) {
+        View overlay = findViewById(R.id.story_viewer_overlay);
+        ImageView img = findViewById(R.id.story_viewer_image);
+        VideoView vid = findViewById(R.id.story_viewer_video);
+        View closeBtn = findViewById(R.id.story_viewer_close);
+        
+        if (overlay == null || img == null || vid == null) return;
+        overlay.setVisibility(View.VISIBLE);
+        img.setVisibility(View.GONE);
+        vid.setVisibility(View.VISIBLE);
+
+        vid.setVideoPath(url);
+        vid.setOnPreparedListener(mp -> {
+            mp.setLooping(true);
+            vid.start();
+        });
+
+        if (closeBtn != null) {
+            closeBtn.setOnClickListener(v -> {
+                vid.stopPlayback();
+                overlay.setVisibility(View.GONE);
+            });
+        }
+    }
+
+    private List<File> scanSavedSnaps() {
+        List<File> list = new ArrayList<>();
+        try {
+            File picsDir = new File(android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_PICTURES), "SnapTake");
+            if (picsDir.exists() && picsDir.isDirectory()) {
+                File[] files = picsDir.listFiles();
+                if (files != null) {
+                    for (File f : files) {
+                        if (f.isFile() && (f.getName().endsWith(".jpg") || f.getName().endsWith(".jpeg") || f.getName().endsWith(".png"))) {
+                            list.add(f);
+                        }
+                    }
+                }
+            }
+            File vidsDir = new File(android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_MOVIES), "SnapTake");
+            if (vidsDir.exists() && vidsDir.isDirectory()) {
+                File[] files = vidsDir.listFiles();
+                if (files != null) {
+                    for (File f : files) {
+                        if (f.isFile() && f.getName().endsWith(".mp4")) {
+                            list.add(f);
+                        }
+                    }
+                }
+            }
+            // Sort newest first
+            Collections.sort(list, (f1, f2) -> Long.compare(f2.lastModified(), f1.lastModified()));
+        } catch (Exception e) {
+            Log.e(TAG, "Story scan failed", e);
+        }
+        return list;
+    }
+
+    private void playUserStories() {
+        List<File> snaps = scanSavedSnaps();
+        if (snaps.isEmpty()) {
+            Toast.makeText(this, "No saved snaps in Memories yet! Capture a photo and click Save.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        
+        View overlay = findViewById(R.id.story_viewer_overlay);
+        ImageView img = findViewById(R.id.story_viewer_image);
+        VideoView vid = findViewById(R.id.story_viewer_video);
+        View closeBtn = findViewById(R.id.story_viewer_close);
+        
+        if (overlay == null || img == null || vid == null) return;
+        overlay.setVisibility(View.VISIBLE);
+
+        if (closeBtn != null) {
+            closeBtn.setOnClickListener(v -> {
+                vid.stopPlayback();
+                overlay.setVisibility(View.GONE);
+            });
+        }
+        
+        File newest = snaps.get(0);
+        if (newest.getName().endsWith(".mp4")) {
+            img.setVisibility(View.GONE);
+            vid.setVisibility(View.VISIBLE);
+            vid.setVideoPath(newest.getAbsolutePath());
+            vid.setOnPreparedListener(mp -> vid.start());
+        } else {
+            vid.setVisibility(View.GONE);
+            img.setVisibility(View.VISIBLE);
+            img.setImageURI(Uri.fromFile(newest));
+        }
+    }
+
+    private void playFriendStory(String friendName) {
+        View overlay = findViewById(R.id.story_viewer_overlay);
+        ImageView img = findViewById(R.id.story_viewer_image);
+        VideoView vid = findViewById(R.id.story_viewer_video);
+        View closeBtn = findViewById(R.id.story_viewer_close);
+        
+        if (overlay == null || img == null || vid == null) return;
+        overlay.setVisibility(View.VISIBLE);
+
+        if (closeBtn != null) {
+            closeBtn.setOnClickListener(v -> {
+                vid.stopPlayback();
+                overlay.setVisibility(View.GONE);
+            });
+        }
+        
+        String videoUrl;
+        if (friendName.equals("Alex")) {
+            videoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
+        } else if (friendName.equals("Jessica")) {
+            videoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4";
+        } else {
+            videoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4";
+        }
+
+        img.setVisibility(View.GONE);
+        vid.setVisibility(View.VISIBLE);
+        vid.setVideoPath(videoUrl);
+        vid.setOnPreparedListener(mp -> {
+            mp.setLooping(true);
+            vid.start();
+        });
+        
+        Toast.makeText(this, "Playing " + friendName + "'s Story", Toast.LENGTH_SHORT).show();
+    }
+
+    private void setupStoriesSystem() {
+        LinearLayout friendsContainer = findViewById(R.id.stories_friends_container);
+        if (friendsContainer != null) {
+            friendsContainer.removeAllViews();
+            
+            String[] friends = {"My Story", "Alex", "Jessica", "Sam", "Sarah", "David", "Emma"};
+            for (String f : friends) {
+                View item = getLayoutInflater().inflate(R.layout.item_story_friend, friendsContainer, false);
+                
+                View ring = item.findViewById(R.id.story_border_ring);
+                View avatarBg = item.findViewById(R.id.story_avatar_bg);
+                TextView avatarText = item.findViewById(R.id.story_avatar_text);
+                TextView nameView = item.findViewById(R.id.story_friend_name);
+
+                nameView.setText(f);
+                
+                // Configure avatar emojis and bg colors based on name
+                String emoji = "👻";
+                String color = "#FFFC00"; // default Snapchat yellow
+                if (f.equals("My Story")) {
+                    emoji = "👻";
+                    color = "#FFFC00";
+                    // For My Story, hide the gradient border (it's user's story)
+                    if (ring != null) ring.setBackground(null);
+                } else if (f.equals("Alex")) {
+                    emoji = "👦";
+                    color = "#FF9500";
+                } else if (f.equals("Jessica")) {
+                    emoji = "👧";
+                    color = "#FF2D55";
+                } else if (f.equals("Sam")) {
+                    emoji = "👨";
+                    color = "#34C759";
+                } else if (f.equals("Sarah")) {
+                    emoji = "👩";
+                    color = "#007AFF";
+                } else if (f.equals("David")) {
+                    emoji = "👱";
+                    color = "#AF52DE";
+                } else {
+                    emoji = "👩‍🦰";
+                    color = "#E0A0FF";
+                }
+
+                if (avatarText != null) avatarText.setText(emoji);
+                if (avatarBg != null) {
+                    avatarBg.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor(color)));
+                }
+
+                item.setOnClickListener(v -> {
+                    if (f.equals("My Story")) {
+                        playUserStories();
+                    } else {
+                        // Mark as read: remove gradient ring
+                        if (ring != null) ring.setBackground(null);
+                        playFriendStory(f);
+                    }
+                });
+
+                friendsContainer.addView(item);
+            }
+        }
+
+        GridLayout discoverGrid = findViewById(R.id.stories_discover_grid);
+        if (discoverGrid != null) {
+            discoverGrid.removeAllViews();
+            
+            String[] titles = {"Daily Memes", "Travel Goals", "Tech Today", "Food Safari"};
+            String[] descs = {"Laugh out loud", "Explore Maldives", "Future of AI", "Best street foods"};
+            int[] colors = {
+                android.graphics.Color.parseColor("#22FFFFFF"), 
+                android.graphics.Color.parseColor("#2200F2FF"), 
+                android.graphics.Color.parseColor("#226366F1"), 
+                android.graphics.Color.parseColor("#22FFCC00")  
+            };
+
+            int screenWidth = getResources().getDisplayMetrics().widthPixels;
+            int cardWidth = (screenWidth - 48) / 2; 
+
+            for (int i = 0; i < titles.length; i++) {
+                View card = getLayoutInflater().inflate(R.layout.item_story_discover, discoverGrid, false);
+                
+                // Configure size
+                GridLayout.LayoutParams params = (GridLayout.LayoutParams) card.getLayoutParams();
+                params.width = cardWidth;
+                params.height = (int) (cardWidth * 1.4f);
+                params.setMargins(8, 8, 8, 8);
+                card.setLayoutParams(params);
+
+                // Set Card background tint
+                View cardBg = card.findViewById(R.id.discover_card_bg);
+                if (cardBg != null) {
+                    cardBg.setBackgroundTintList(android.content.res.ColorStateList.valueOf(colors[i]));
+                }
+
+                // Bind Text
+                TextView titleView = card.findViewById(R.id.discover_title);
+                TextView descView = card.findViewById(R.id.discover_subtitle);
+                
+                if (titleView != null) titleView.setText(titles[i]);
+                if (descView != null) descView.setText(descs[i]);
+
+                final String storyTitle = titles[i];
+                card.setOnClickListener(v -> {
+                    Toast.makeText(this, "Launching Discover story: " + storyTitle, Toast.LENGTH_SHORT).show();
+                });
+
+                discoverGrid.addView(card);
+            }
+        }
+    }
+
+    private void setupSpotlightSystem() {
+        // Spotlight system is fully handled dynamically by ViewPager2 inside setupBottomNavigation()
+    }
+
+    private void loadSpotlightItem(int index) {
+        // Spotlight items are loaded dynamically inside SpotlightAdapter
+    }
+
+
     private void initializeUI() {
         ImageButton captureButton = findViewById(R.id.image_capture_button);
-        MaterialButton flipButton = findViewById(R.id.btnFlip);
-        MaterialButton flashButton = findViewById(R.id.btnFlash);
-        MaterialButton gridButton = findViewById(R.id.btnGrid);
-        MaterialButton timerButton = findViewById(R.id.btnTimer);
-        SeekBar zoomSlider = findViewById(R.id.zoom_slider);
+        ImageButton btnScissors = findViewById(R.id.btnScissors);
+        ImageButton btnFrames = findViewById(R.id.btnFrames);
+        ImageButton btnMusic = findViewById(R.id.btnMusic);
+        ImageButton btnSnapTool = findViewById(R.id.btnSnapTool);
+        ImageButton btnPlus = findViewById(R.id.btnPlus);
 
-        if (flipButton != null) flipButton.setOnClickListener(v -> swapCamera());
-        if (flashButton != null) flashButton.setOnClickListener(v -> toggleFlash(flashButton));
-        if (gridButton != null) gridButton.setOnClickListener(v -> toggleGrid());
-        if (timerButton != null) timerButton.setOnClickListener(v -> cycleTimer());
+        if (btnScissors != null) btnScissors.setOnClickListener(v -> Toast.makeText(this, "Edit with Scissors", Toast.LENGTH_SHORT).show());
+        if (btnFrames != null) btnFrames.setOnClickListener(v -> Toast.makeText(this, "Multi-Snap Frames", Toast.LENGTH_SHORT).show());
+        if (btnMusic != null) btnMusic.setOnClickListener(v -> Toast.makeText(this, "Add Music", Toast.LENGTH_SHORT).show());
+        if (btnSnapTool != null) btnSnapTool.setOnClickListener(v -> Toast.makeText(this, "Quick Snap", Toast.LENGTH_SHORT).show());
+        if (btnPlus != null) btnPlus.setOnClickListener(v -> Toast.makeText(this, "More Tools", Toast.LENGTH_SHORT).show());
+
+        View profileBtn = findViewById(R.id.btn_profile);
+        if (profileBtn != null) profileBtn.setOnClickListener(v -> Toast.makeText(this, "Profile: @snaptaker", Toast.LENGTH_SHORT).show());
+
+        View searchBtn = findViewById(R.id.btn_search);
+        if (searchBtn != null) searchBtn.setOnClickListener(v -> Toast.makeText(this, "Search: Find friends & lenses", Toast.LENGTH_SHORT).show());
+
+        View addFriendBtn = findViewById(R.id.btn_add_friend);
+        if (addFriendBtn != null) addFriendBtn.setOnClickListener(v -> Toast.makeText(this, "Add Friends: Start snapping!", Toast.LENGTH_SHORT).show());
         
+        SeekBar zoomSlider = findViewById(R.id.zoom_slider);
         setupZoomAndFocus(zoomSlider);
         setupShutterTouchGestures(captureButton);
         setupPostCaptureControls();
@@ -233,9 +2002,21 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
 
             @Override
             public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-                if (e1 != null && e2 != null && e1.getY() - e2.getY() > 150 && Math.abs(velocityY) > 150) {
-                    openMemoriesDrawer();
-                    return true;
+                if (e1 == null || e2 == null) return false;
+                
+                float diffY = e1.getY() - e2.getY();
+                float diffX = e1.getX() - e2.getX();
+                
+                if (Math.abs(diffX) > Math.abs(diffY)) {
+                    if (Math.abs(diffX) > 150 && Math.abs(velocityX) > 150) {
+                        cycleLiveFilter(diffX > 0);
+                        return true;
+                    }
+                } else {
+                    if (diffY > 150 && Math.abs(velocityY) > 150) {
+                        openMemoriesDrawer();
+                        return true;
+                    }
                 }
                 return false;
             }
@@ -246,6 +2027,35 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                 viewFinderGestureDetector.onTouchEvent(e);
                 return true;
             });
+        }
+    }
+
+    private void cycleLiveFilter(boolean forward) {
+        int curIndex = 0;
+        for (int i = 0; i < filtersList.length; i++) {
+            if (filtersList[i].equals(currentFilter)) {
+                curIndex = i;
+                break;
+            }
+        }
+        if (forward) {
+            curIndex = (curIndex + 1) % filtersList.length;
+        } else {
+            curIndex = (curIndex - 1 + filtersList.length) % filtersList.length;
+        }
+        currentFilter = filtersList[curIndex];
+        
+        applyFilterEffects(currentFilter);
+        
+        if (filterNameIndicator != null) {
+            filterNameIndicator.setVisibility(View.VISIBLE);
+            filterNameIndicator.setText(currentFilter);
+            filterNameIndicator.setAlpha(1.0f);
+            filterNameIndicator.animate()
+                    .alpha(0.0f)
+                    .setDuration(1000)
+                    .withEndAction(() -> filterNameIndicator.setVisibility(View.GONE))
+                    .start();
         }
     }
 
@@ -369,6 +2179,9 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             if (overlay != null) {
                 overlay.setActiveLens(activeLensName);
             }
+            if (deepARManager != null) {
+                deepARManager.switchEffect(lensName);
+            }
         });
         lensesRecycler.setAdapter(adapter);
     }
@@ -376,7 +2189,10 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
     private String[] generateFiltersList() {
         return new String[] {
             "Original", "Noir", "Retro", "Cyberpunk", "Cold Glitch", "Sunset Warm", 
-            "Forest Green", "Dramatic", "Matrix Green", "Ocean Blue", "Polaroid Faded", "Acid Neon"
+            "Forest Green", "Dramatic", "Matrix Green", "Ocean Blue", "Polaroid Faded", "Acid Neon",
+            "Sepia Vintage", "Infrared", "Golden Hour", "Electric Violet", "Teal & Orange",
+            "High Contrast", "Rosy Pink", "Cyber Green", "Bleach Bypass", "Cross Process",
+            "Ice Cold", "Crimson Red", "Yellow Sunshine"
         };
     }
 
@@ -465,8 +2281,284 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             });
         } else if (filterName.equals("Acid Neon")) {
             matrix.setSaturation(2.0f);
+        } else if (filterName.equals("Sepia Vintage")) {
+            matrix.set(new float[] {
+                0.393f, 0.769f, 0.189f, 0, 0,
+                0.349f, 0.686f, 0.168f, 0, 0,
+                0.272f, 0.534f, 0.131f, 0, 0,
+                0,      0,      0,      1, 0
+            });
+        } else if (filterName.equals("Infrared")) {
+            matrix.set(new float[] {
+                0f, 1f, 0f, 0, 0,
+                1f, 0f, 0f, 0, 0,
+                0f, 0f, 1f, 0, 0,
+                0,  0,  0,  1, 0
+            });
+        } else if (filterName.equals("Golden Hour")) {
+            matrix.set(new float[] {
+                1.4f, 0.1f, 0f,   0, 10f,
+                0.1f, 1.1f, 0f,   0, 5f,
+                0f,   0f,   0.6f, 0, -10f,
+                0,    0,    0,    1, 0
+            });
+        } else if (filterName.equals("Electric Violet")) {
+            matrix.set(new float[] {
+                0.8f, 0f,   0.4f, 0, 15f,
+                0f,   0.6f, 0.2f, 0, 0f,
+                0.3f, 0f,   1.4f, 0, 20f,
+                0,    0,    0,    1, 0
+            });
+        } else if (filterName.equals("Teal & Orange")) {
+            matrix.set(new float[] {
+                1.15f, 0.05f, 0f,    0, 15f,
+                0f,    0.95f, 0.05f, 0, 0f,
+                -0.1f, 0.05f, 1.25f, 0, -10f,
+                0,     0,     0,     1, 0
+            });
+        } else if (filterName.equals("High Contrast")) {
+            matrix.set(new float[] {
+                1.5f, 0f,   0f,   0, -40f,
+                0f,   1.5f, 0f,   0, -40f,
+                0f,   0f,   1.5f, 0, -40f,
+                0,    0,    0,    1, 0
+            });
+        } else if (filterName.equals("Rosy Pink")) {
+            matrix.set(new float[] {
+                1.3f, 0.1f, 0.1f, 0, 20f,
+                0.1f, 0.9f, 0.1f, 0, 10f,
+                0.1f, 0.1f, 1.1f, 0, 20f,
+                0,    0,    0,    1, 0
+            });
+        } else if (filterName.equals("Cyber Green")) {
+            matrix.set(new float[] {
+                0.5f, 0.3f, 0f,   0, 0,
+                0.2f, 1.4f, 0.1f, 0, 20f,
+                0f,   0.2f, 0.5f, 0, 0,
+                0,    0,    0,    1, 0
+            });
+        } else if (filterName.equals("Bleach Bypass")) {
+            matrix.set(new float[] {
+                1.3f, 0f,   0f,   0, -10f,
+                0f,   1.3f, 0f,   0, -10f,
+                0f,   0f,   1.3f, 0, -10f,
+                0,    0,    0,    1, 0
+            });
+            android.graphics.ColorMatrix sat = new android.graphics.ColorMatrix();
+            sat.setSaturation(0.3f);
+            matrix.postConcat(sat);
+        } else if (filterName.equals("Cross Process")) {
+            matrix.set(new float[] {
+                1.1f, 0.1f, 0f,   0, 10f,
+                0f,   1.2f, 0.1f, 0, 15f,
+                0.1f, 0f,   0.9f, 0, -20f,
+                0,    0,    0,    1, 0
+            });
+        } else if (filterName.equals("Ice Cold")) {
+            matrix.set(new float[] {
+                0.7f, 0.1f, 0.2f, 0, -10f,
+                0.1f, 0.9f, 0.1f, 0, 0f,
+                0f,   0.1f, 1.5f, 0, 30f,
+                0,    0,    0,    1, 0
+            });
+        } else if (filterName.equals("Crimson Red")) {
+            matrix.set(new float[] {
+                1.6f, 0f,   0f,   0, 30f,
+                0f,   0.6f, 0f,   0, -10f,
+                0f,   0f,   0.6f, 0, -10f,
+                0,    0,    0,    1, 0
+            });
+        } else if (filterName.equals("Yellow Sunshine")) {
+            matrix.set(new float[] {
+                1.3f, 0.2f, 0f,   0, 15f,
+                0.1f, 1.3f, 0f,   0, 15f,
+                0f,   0f,   0.5f, 0, -30f,
+                0,    0,    0,    1, 0
+            });
         }
         return matrix;
+    }
+
+    private static class LensItem {
+        String name;
+        String assetPath;
+        int iconResId;
+        LensItem(String name, String assetPath, int iconResId) {
+            this.name = name;
+            this.assetPath = assetPath;
+            this.iconResId = iconResId;
+        }
+    }
+
+    private final List<LensItem> lensItems = new ArrayList<>();
+    private int currentLensIndex = 0;
+
+    private void setupLensCarousel() {
+        androidx.recyclerview.widget.RecyclerView carousel = findViewById(R.id.lenses_carousel);
+        if (carousel == null) return;
+
+        lensItems.clear();
+        lensItems.add(new LensItem("None", null, R.drawable.ic_camera));
+        lensItems.add(new LensItem("Dog", null, R.drawable.ic_tool_snap));
+        lensItems.add(new LensItem("Glasses", null, R.drawable.ic_nav_scan));
+        lensItems.add(new LensItem("Crown", null, R.drawable.ic_tool_plus));
+        lensItems.add(new LensItem("Stache", null, R.drawable.ic_tool_scissors));
+        lensItems.add(new LensItem("Neon Devil", null, R.drawable.ic_nav_close));
+        lensItems.add(new LensItem("Angel Halo", null, R.drawable.ic_nav_browse));
+        lensItems.add(new LensItem("Cyberpunk HUD", null, R.drawable.ic_grid));
+        lensItems.add(new LensItem("Bunny", null, R.drawable.ic_camera));
+        lensItems.add(new LensItem("Cat", null, R.drawable.ic_camera));
+        lensItems.add(new LensItem("Flower Crown", null, R.drawable.ic_camera));
+        lensItems.add(new LensItem("Beard", null, R.drawable.ic_camera));
+        lensItems.add(new LensItem("Ghost", null, R.drawable.ic_camera));
+        lensItems.add(new LensItem("Star Eyes", null, R.drawable.ic_camera));
+        lensItems.add(new LensItem("Heart Eyes", null, R.drawable.ic_camera));
+        lensItems.add(new LensItem("Fire Head", null, R.drawable.ic_camera));
+        lensItems.add(new LensItem("Rainbow Mouth", null, R.drawable.ic_camera));
+        lensItems.add(new LensItem("Alien", null, R.drawable.ic_camera));
+        lensItems.add(new LensItem("Pirate", null, R.drawable.ic_camera));
+        lensItems.add(new LensItem("Clown", null, R.drawable.ic_camera));
+        lensItems.add(new LensItem("Superhero", null, R.drawable.ic_camera));
+        lensItems.add(new LensItem("Vampire", null, R.drawable.ic_camera));
+        lensItems.add(new LensItem("Wizard", null, R.drawable.ic_camera));
+        lensItems.add(new LensItem("Space Helmet", null, R.drawable.ic_camera));
+        lensItems.add(new LensItem("Butterfly", null, R.drawable.ic_camera));
+        
+        LensAdapter adapter = new LensAdapter();
+        carousel.setLayoutManager(new androidx.recyclerview.widget.LinearLayoutManager(this, androidx.recyclerview.widget.LinearLayoutManager.HORIZONTAL, false));
+        carousel.setAdapter(adapter);
+
+        androidx.recyclerview.widget.SnapHelper snapHelper = new androidx.recyclerview.widget.LinearSnapHelper();
+        snapHelper.attachToRecyclerView(carousel);
+
+        carousel.addOnScrollListener(new androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrollStateChanged(@NonNull androidx.recyclerview.widget.RecyclerView recyclerView, int newState) {
+                if (newState == androidx.recyclerview.widget.RecyclerView.SCROLL_STATE_IDLE) {
+                    View centerView = snapHelper.findSnapView(recyclerView.getLayoutManager());
+                    if (centerView != null) {
+                        int pos = recyclerView.getLayoutManager().getPosition(centerView);
+                        if (pos != currentLensIndex && pos >= 0 && pos < lensItems.size()) {
+                            currentLensIndex = pos;
+                            adapter.notifyDataSetChanged();
+                            updateShutterVisibility();
+                            
+                            // Set the active lens in FaceOverlayView for ML Kit canvas rendering!
+                            FaceOverlayView overlay = findViewById(R.id.face_overlay);
+                            if (overlay != null) {
+                                overlay.setActiveLens(lensItems.get(pos).name);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    private class LensAdapter extends androidx.recyclerview.widget.RecyclerView.Adapter<LensAdapter.ViewHolder> {
+        class ViewHolder extends androidx.recyclerview.widget.RecyclerView.ViewHolder {
+            View lensCircle;
+            TextView emojiView;
+            ViewHolder(View v) { 
+                super(v); 
+                lensCircle = v.findViewById(R.id.lens_circle); 
+                emojiView = v.findViewById(R.id.lens_emoji); 
+            }
+        }
+        @NonNull @Override
+        public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            View v = android.view.LayoutInflater.from(parent.getContext()).inflate(R.layout.lens_item, parent, false);
+            return new ViewHolder(v);
+        }
+        @Override
+        public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+            LensItem item = lensItems.get(position);
+            
+            // Set emoji based on name (hide for "None" so standard shutter is exposed)
+            String emoji = "👻";
+            if (item.name.equals("None")) emoji = "";
+            else if (item.name.equals("Dog")) emoji = "🐶";
+            else if (item.name.equals("Glasses")) emoji = "🕶️";
+            else if (item.name.equals("Crown")) emoji = "👑";
+            else if (item.name.equals("Stache")) emoji = "🥸";
+            else if (item.name.equals("Neon Devil")) emoji = "😈";
+            else if (item.name.equals("Angel Halo")) emoji = "😇";
+            else if (item.name.equals("Cyberpunk HUD")) emoji = "🤖";
+            else if (item.name.equals("Bunny")) emoji = "🐰";
+            else if (item.name.equals("Cat")) emoji = "🐱";
+            else if (item.name.equals("Flower Crown")) emoji = "🌸";
+            else if (item.name.equals("Beard")) emoji = "🧔";
+            else if (item.name.equals("Ghost")) emoji = "👻";
+            else if (item.name.equals("Star Eyes")) emoji = "🤩";
+            else if (item.name.equals("Heart Eyes")) emoji = "😍";
+            else if (item.name.equals("Fire Head")) emoji = "🔥";
+            else if (item.name.equals("Rainbow Mouth")) emoji = "🌈";
+            else if (item.name.equals("Alien")) emoji = "👽";
+            else if (item.name.equals("Pirate")) emoji = "🏴‍☠️";
+            else if (item.name.equals("Clown")) emoji = "🤡";
+            else if (item.name.equals("Superhero")) emoji = "🦸";
+            else if (item.name.equals("Vampire")) emoji = "🧛";
+            else if (item.name.equals("Wizard")) emoji = "🧙";
+            else if (item.name.equals("Space Helmet")) emoji = "🧑‍🚀";
+            else if (item.name.equals("Butterfly")) emoji = "🦋";
+            
+            if (holder.emojiView != null) holder.emojiView.setText(emoji);
+
+            // Configure selected / center focus animation
+            if (holder.lensCircle != null) {
+                android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable();
+                gd.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+                if (position == currentLensIndex) {
+                    if (item.name.equals("None")) {
+                        // Make transparent to show the shutter button underneath
+                        gd.setColor(android.graphics.Color.TRANSPARENT);
+                        gd.setStroke(0, android.graphics.Color.TRANSPARENT);
+                    } else {
+                        gd.setColor(android.graphics.Color.parseColor("#33FFFC00")); // Snapchat Yellow background tint
+                        gd.setStroke(4, android.graphics.Color.parseColor("#FFFC00")); // Snapchat Yellow border
+                    }
+                    holder.itemView.setScaleX(1.2f);
+                    holder.itemView.setScaleY(1.2f);
+                } else {
+                    gd.setColor(android.graphics.Color.parseColor("#4D000000")); // Dark background
+                    gd.setStroke(2, android.graphics.Color.parseColor("#80FFFFFF")); // faint white border
+                    holder.itemView.setScaleX(1.0f);
+                    holder.itemView.setScaleY(1.0f);
+                }
+                holder.lensCircle.setBackground(gd);
+            }
+
+            // Click action
+            holder.itemView.setOnClickListener(v -> {
+                if (position == currentLensIndex) {
+                    // Clicking the selected lens in the center acts as a shutter tap!
+                    takePhoto();
+                } else {
+                    // Scroll to select lens
+                    androidx.recyclerview.widget.RecyclerView carousel = findViewById(R.id.lenses_carousel);
+                    if (carousel != null) {
+                        carousel.smoothScrollToPosition(position);
+                        currentLensIndex = position;
+                        notifyDataSetChanged();
+                        updateShutterVisibility();
+                        FaceOverlayView overlay = findViewById(R.id.face_overlay);
+                        if (overlay != null) {
+                            overlay.setActiveLens(lensItems.get(position).name);
+                        }
+                    }
+                }
+            });
+
+            // Long-click action (starts recording video on center lens)
+            holder.itemView.setOnLongClickListener(v -> {
+                if (position == currentLensIndex) {
+                    startVideoRecordingForSnap();
+                    return true;
+                }
+                return false;
+            });
+        }
+        @Override public int getItemCount() { return lensItems.size(); }
     }
 
     private void setupPostCaptureControls() {
@@ -712,7 +2804,7 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
     private void launchPostCapturePreview(Uri uri, boolean isPhoto) {
         capturedUri = uri;
         capturedIsPhoto = isPhoto;
-        postCaptureFilter = "Original";
+        postCaptureFilter = currentFilter;
 
         runOnUiThread(() -> {
             findViewById(R.id.post_capture_layer).setVisibility(View.VISIBLE);
@@ -721,9 +2813,12 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             android.widget.VideoView previewVid = findViewById(R.id.post_capture_video);
             View muteBtn = findViewById(R.id.post_btn_mute);
 
-            // Apply default identity matrix
+            // Apply carry-over live filter
             if (previewImg != null) {
-                previewImg.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+                android.graphics.ColorMatrix matrix = getColorMatrixForFilter(postCaptureFilter);
+                android.graphics.Paint paint = new android.graphics.Paint();
+                paint.setColorFilter(new android.graphics.ColorMatrixColorFilter(matrix));
+                previewImg.setLayerType(View.LAYER_TYPE_HARDWARE, paint);
             }
 
             if (isPhoto) {
@@ -890,16 +2985,17 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             float pitch = (float) Math.toDegrees(orientationAngles[1]);
             float roll = (float) Math.toDegrees(orientationAngles[2]);
             
+            // Keep the shutter button fixed in the center (no gyro movement)
             View container = findViewById(R.id.capture_container);
             if (container != null) {
-                container.setTranslationX(roll * 2f);
-                container.setTranslationY(pitch * 2f);
+                container.setTranslationX(0);
+                container.setTranslationY(0);
             }
             
-            View flash = findViewById(R.id.btnFlash);
-            if (flash != null) {
-                flash.setRotationX(pitch * 0.5f);
-                flash.setRotationY(-roll * 0.5f);
+            View scissors = findViewById(R.id.btnScissors);
+            if (scissors != null) {
+                scissors.setRotationX(pitch * 0.5f);
+                scissors.setRotationY(-roll * 0.5f);
             }
 
             View levelLine = findViewById(R.id.level_line);
@@ -942,12 +3038,18 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         if (rotationSensor != null) {
             sensorManager.registerListener(this, rotationSensor, android.hardware.SensorManager.SENSOR_DELAY_UI);
         }
+        if (chatRepo == null) chatRepo = new ChatRepository();
+        chatRepo.setUserOnlineStatus("currentUser", true);
+        chatRepo.setUserOnlineStatus("peerUser", true);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         sensorManager.unregisterListener(this);
+        if (chatRepo == null) chatRepo = new ChatRepository();
+        chatRepo.setUserOnlineStatus("currentUser", false);
+        chatRepo.setUserOnlineStatus("peerUser", false);
     }
 
     private void handleCapture() {
@@ -966,12 +3068,12 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         startCamera();
     }
 
-    private void toggleFlash(MaterialButton btn) {
+    private void toggleFlash(ImageButton btn) {
         flashMode = (flashMode + 1) % 3;
         int icon = R.drawable.ic_flash_off;
         if (flashMode == ImageCapture.FLASH_MODE_ON) icon = R.drawable.ic_flash_on;
         else if (flashMode == ImageCapture.FLASH_MODE_AUTO) icon = R.drawable.ic_flash_auto;
-        btn.setIconResource(icon);
+        btn.setImageResource(icon);
         if (imageCapture != null) imageCapture.setFlashMode(flashMode);
     }
 
@@ -1038,8 +3140,9 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
 
     private void focus(float x, float y) {
         if (camera == null || viewFinder == null) return;
-        MeteringPoint point = viewFinder.getMeteringPointFactory().createPoint(x, y);
-        camera.getCameraControl().startFocusAndMetering(new FocusMeteringAction.Builder(point).build());
+        androidx.camera.core.SurfaceOrientedMeteringPointFactory factory = new androidx.camera.core.SurfaceOrientedMeteringPointFactory(viewFinder.getWidth(), viewFinder.getHeight());
+        androidx.camera.core.MeteringPoint point = factory.createPoint(x, y);
+        camera.getCameraControl().startFocusAndMetering(new androidx.camera.core.FocusMeteringAction.Builder(point).build());
     }
 
     private void focusAndShowControls(float x, float y) {
@@ -1107,9 +3210,7 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                 provider.unbindAll();
 
                 Preview preview = new Preview.Builder().build();
-                if (viewFinder != null) {
-                    preview.setSurfaceProvider(viewFinder.getSurfaceProvider());
-                }
+                preview.setSurfaceProvider(viewFinder.getSurfaceProvider());
 
                 CameraSelector selector = new CameraSelector.Builder().requireLensFacing(lensFacing).build();
 
@@ -1128,44 +3229,50 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                     }
                 }
 
-                // ImageAnalysis use case for live ML Kit face stickers tracking
+                // ImageAnalysis use case for live ML Kit face stickers tracking (uses standard YUV_420_888)
                 ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build();
 
                 boolean isFront = (lensFacing == CameraSelector.LENS_FACING_FRONT);
                 imageAnalysis.setAnalyzer(cameraExecutor, imageProxy -> {
-                    @androidx.annotation.OptIn(markerClass = androidx.camera.core.ExperimentalGetImage.class)
-                    android.media.Image mediaImage = imageProxy.getImage();
-                    if (mediaImage != null) {
-                        com.google.mlkit.vision.common.InputImage image =
-                                com.google.mlkit.vision.common.InputImage.fromMediaImage(mediaImage, imageProxy.getImageInfo().getRotationDegrees());
-                        faceDetector.process(image)
-                                .addOnSuccessListener(faces -> {
-                                    FaceOverlayView overlay = findViewById(R.id.face_overlay);
-                                    if (overlay != null) {
-                                        overlay.setFaces(faces, imageProxy.getWidth(), imageProxy.getHeight(), isFront);
-                                        
-                                        // Auto-smile capture triggers photo capture automatically!
-                                        if (activeMode == CaptureMode.PHOTO && !faces.isEmpty() && isSmileShutterEnabled) {
-                                            for (com.google.mlkit.vision.face.Face face : faces) {
-                                                if (face.getSmilingProbability() != null && face.getSmilingProbability() > 0.85f) {
-                                                    // Throttle smile shutter to avoid loops
-                                                    isSmileShutterEnabled = false;
-                                                    runOnUiThread(() -> {
-                                                        Toast.makeText(MainActivity.this, "Smiling! Taking Snap...", Toast.LENGTH_SHORT).show();
-                                                        takePhoto();
-                                                        new Handler(Looper.getMainLooper()).postDelayed(() -> isSmileShutterEnabled = true, 5000);
-                                                    });
-                                                    break;
+                    try {
+                        @androidx.camera.core.ExperimentalGetImage
+                        android.media.Image mediaImage = imageProxy.getImage();
+                        if (mediaImage != null) {
+                            int orientation = imageProxy.getImageInfo().getRotationDegrees();
+                            com.google.mlkit.vision.common.InputImage image = com.google.mlkit.vision.common.InputImage.fromMediaImage(mediaImage, orientation);
+                            
+                            int width = imageProxy.getWidth();
+                            int height = imageProxy.getHeight();
+
+                            faceDetector.process(image)
+                                    .addOnSuccessListener(faces -> {
+                                        FaceOverlayView overlay = findViewById(R.id.face_overlay);
+                                        if (overlay != null) {
+                                            overlay.setFaces(faces, width, height, isFront);
+                                            if (activeMode == CaptureMode.PHOTO && !faces.isEmpty() && isSmileShutterEnabled) {
+                                                for (com.google.mlkit.vision.face.Face face : faces) {
+                                                    if (face.getSmilingProbability() != null && face.getSmilingProbability() > 0.85f) {
+                                                        isSmileShutterEnabled = false;
+                                                        runOnUiThread(() -> {
+                                                            Toast.makeText(MainActivity.this, "Smiling! Taking Snap...", Toast.LENGTH_SHORT).show();
+                                                            takePhoto();
+                                                            new Handler(Looper.getMainLooper()).postDelayed(() -> isSmileShutterEnabled = true, 5000);
+                                                        });
+                                                        break;
+                                                    }
                                                 }
                                             }
                                         }
-                                    }
-                                })
-                                .addOnFailureListener(e -> Log.e(TAG, "Face analysis failed", e))
-                                .addOnCompleteListener(task -> imageProxy.close());
-                    } else {
+                                    })
+                                    .addOnFailureListener(e -> Log.e(TAG, "Face analysis failed", e))
+                                    .addOnCompleteListener(task -> imageProxy.close());
+                        } else {
+                            imageProxy.close();
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Image analysis error", e);
                         imageProxy.close();
                     }
                 });
@@ -1190,10 +3297,17 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
     }
 
     private void takePhoto() {
-        if (imageCapture == null) return;
+        if (timerSeconds > 0) {
+            Toast.makeText(this, "Timer: " + timerSeconds + "s", Toast.LENGTH_SHORT).show();
+            new Handler(Looper.getMainLooper()).postDelayed(this::executePhotoCapture, timerSeconds * 1000L);
+        } else {
+            executePhotoCapture();
+        }
+    }
 
+    private void executePhotoCapture() {
         // Selfie Soft Flash simulation
-        if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
+        if (lensFacing == CameraSelector.LENS_FACING_FRONT && flashMode == ImageCapture.FLASH_MODE_ON) {
             View flashOverlay = findViewById(R.id.selfie_flash_overlay);
             if (flashOverlay != null) {
                 flashOverlay.setVisibility(View.VISIBLE);
@@ -1208,26 +3322,51 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
     }
 
     private void capturePhotoFlow() {
+        if (imageCapture == null) return;
         String name = new SimpleDateFormat(FILENAME_FORMAT, Locale.US).format(System.currentTimeMillis());
         ContentValues cv = new ContentValues();
         cv.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
         cv.put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg");
         if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
-            cv.put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/PrismaticAura");
+            cv.put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/SnapTake");
         }
-
-        ImageCapture.OutputFileOptions options = new ImageCapture.OutputFileOptions.Builder(getContentResolver(),
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI, cv).build();
-
-        imageCapture.takePicture(options, ContextCompat.getMainExecutor(this),
-                new ImageCapture.OnImageSavedCallback() {
+        ImageCapture.OutputFileOptions options = new ImageCapture.OutputFileOptions.Builder(
+                getContentResolver(),
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                cv
+        ).build();
+        imageCapture.takePicture(options, cameraExecutor, new ImageCapture.OnImageSavedCallback() {
             @Override
-            public void onImageSaved(@NonNull ImageCapture.OutputFileResults o) {
-                Uri uri = o.getSavedUri();
-                launchPostCapturePreview(uri, true);
+            public void onImageSaved(@NonNull ImageCapture.OutputFileResults results) {
+                Uri savedUri = results.getSavedUri();
+                if (savedUri != null) {
+                    launchPostCapturePreview(savedUri, true);
+                }
             }
-            @Override public void onError(@NonNull ImageCaptureException e) { Log.e(TAG, "Fail", e); }
+            @Override
+            public void onError(@NonNull ImageCaptureException exception) {
+                Log.e(TAG, "Photo capture failed", exception);
+            }
         });
+    }
+
+    private Uri saveBitmapToGallery(android.graphics.Bitmap bitmap) {
+        String name = new SimpleDateFormat(FILENAME_FORMAT, Locale.US).format(System.currentTimeMillis());
+        ContentValues cv = new ContentValues();
+        cv.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
+        cv.put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg");
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
+            cv.put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/SnapTake");
+        }
+        Uri uri = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, cv);
+        if (uri != null) {
+            try (java.io.OutputStream out = getContentResolver().openOutputStream(uri)) {
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 100, out);
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to save bitmap", e);
+            }
+        }
+        return uri;
     }
 
     private void startVideoRecordingForSnap() {
@@ -1240,73 +3379,96 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         }
     }
 
+    private String currentVideoOutputPath;
+    private boolean isRecordingVideo = false;
+
     private void startVideoRecordingFlow() {
+        if (videoCapture == null) return;
         long timestamp = System.currentTimeMillis();
         String name = new SimpleDateFormat(FILENAME_FORMAT, Locale.US).format(timestamp);
+        
         ContentValues cv = new ContentValues();
         cv.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
         cv.put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4");
         if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
-            cv.put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/PrismaticAura");
+            cv.put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/SnapTake");
         }
-
+        
         androidx.camera.video.MediaStoreOutputOptions options = new androidx.camera.video.MediaStoreOutputOptions.Builder(
                 getContentResolver(),
-                MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
-                .setContentValues(cv)
-                .build();
-
-        boolean hasAudioPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
-
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        ).setContentValues(cv).build();
+        
         try {
-            androidx.camera.video.PendingRecording recordingBuilder = videoCapture.getOutput().prepareRecording(this, options);
-            if (hasAudioPermission) {
-                recordingBuilder = recordingBuilder.withAudioEnabled();
-            }
-            
-            activeRecording = recordingBuilder.start(ContextCompat.getMainExecutor(this), new androidx.core.util.Consumer<androidx.camera.video.VideoRecordEvent>() {
-                @Override
-                public void accept(androidx.camera.video.VideoRecordEvent recordEvent) {
-                    if (recordEvent instanceof androidx.camera.video.VideoRecordEvent.Start) {
-                        runOnUiThread(() -> {
-                            ProgressBar pg = findViewById(R.id.record_progress);
-                            if (pg != null) {
-                                pg.setVisibility(View.VISIBLE);
-                                pg.setProgress(0);
-                            }
-                            View timerCont = findViewById(R.id.recording_timer_container);
-                            if (timerCont != null) timerCont.setVisibility(View.VISIBLE);
-                            startRecordingTimer();
-                        });
-                    } else if (recordEvent instanceof androidx.camera.video.VideoRecordEvent.Finalize) {
-                        androidx.camera.video.VideoRecordEvent.Finalize finalizeEvent = (androidx.camera.video.VideoRecordEvent.Finalize) recordEvent;
-                        runOnUiThread(() -> {
-                            ProgressBar pg = findViewById(R.id.record_progress);
-                            if (pg != null) pg.setVisibility(View.GONE);
-                            View timerCont = findViewById(R.id.recording_timer_container);
-                            if (timerCont != null) timerCont.setVisibility(View.GONE);
-                            stopRecordingTimer();
-                        });
-                        
-                        if (!finalizeEvent.hasError()) {
-                            Uri savedUri = finalizeEvent.getOutputResults().getOutputUri();
-                            launchPostCapturePreview(savedUri, false);
-                        } else {
-                            Log.e(TAG, "Video recording error: " + finalizeEvent.getError());
+            isRecordingVideo = true;
+            activeRecording = videoCapture.getOutput()
+                    .prepareRecording(this, options)
+                    .withAudioEnabled()
+                    .start(ContextCompat.getMainExecutor(this), recordEvent -> {
+                        if (recordEvent instanceof androidx.camera.video.VideoRecordEvent.Start) {
+                            runOnUiThread(() -> {
+                                ProgressBar pg = findViewById(R.id.record_progress);
+                                if (pg != null) {
+                                    pg.setVisibility(View.VISIBLE);
+                                    pg.setProgress(0);
+                                }
+                                View timerCont = findViewById(R.id.recording_timer_container);
+                                if (timerCont != null) timerCont.setVisibility(View.VISIBLE);
+                                startRecordingTimer();
+                            });
+                        } else if (recordEvent instanceof androidx.camera.video.VideoRecordEvent.Finalize) {
+                            runOnUiThread(() -> {
+                                ProgressBar pg = findViewById(R.id.record_progress);
+                                if (pg != null) pg.setVisibility(View.GONE);
+                                View timerCont = findViewById(R.id.recording_timer_container);
+                                if (timerCont != null) timerCont.setVisibility(View.GONE);
+                                stopRecordingTimer();
+                                
+                                androidx.camera.video.VideoRecordEvent.Finalize finalizeEvent = (androidx.camera.video.VideoRecordEvent.Finalize) recordEvent;
+                                Uri savedUri = finalizeEvent.getOutputResults().getOutputUri();
+                                if (savedUri != null) {
+                                    launchPostCapturePreview(savedUri, false);
+                                }
+                            });
                         }
-                        activeRecording = null;
-                    }
-                }
-            });
+                    });
         } catch (SecurityException e) {
-            Log.e(TAG, "Recording security exception", e);
+            Log.e(TAG, "Audio permission missing for recording", e);
         }
+    }
+
+    private Uri saveVideoToGallery(String filePath) {
+        java.io.File file = new java.io.File(filePath);
+        if (!file.exists()) return null;
+        
+        ContentValues cv = new ContentValues();
+        cv.put(MediaStore.MediaColumns.DISPLAY_NAME, file.getName());
+        cv.put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4");
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
+            cv.put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/SnapTake");
+        }
+        
+        Uri uri = getContentResolver().insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, cv);
+        if (uri != null) {
+            try (java.io.InputStream in = new java.io.FileInputStream(file);
+                 java.io.OutputStream out = getContentResolver().openOutputStream(uri)) {
+                byte[] buf = new byte[8192];
+                int len;
+                while ((len = in.read(buf)) > 0) {
+                    out.write(buf, 0, len);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to save video", e);
+            }
+        }
+        return uri;
     }
 
     private void stopVideoRecordingForSnap() {
         if (activeRecording != null) {
             activeRecording.stop();
             activeRecording = null;
+            isRecordingVideo = false;
         }
     }
 
@@ -1355,7 +3517,7 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         String[] selectionArgs = null;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             selection = MediaStore.Images.Media.RELATIVE_PATH + " LIKE ?";
-            selectionArgs = new String[]{ "%PrismaticAura%" };
+            selectionArgs = new String[]{ "%SnapTake%" };
         }
         try (android.database.Cursor cursor = getContentResolver().query(imagesUri, projection, selection, selectionArgs, null)) {
             if (cursor != null) {
@@ -1376,7 +3538,7 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         String[] vidSelectionArgs = null;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             vidSelection = MediaStore.Video.Media.RELATIVE_PATH + " LIKE ?";
-            vidSelectionArgs = new String[]{ "%PrismaticAura%" };
+            vidSelectionArgs = new String[]{ "%SnapTake%" };
         }
         try (android.database.Cursor cursor = getContentResolver().query(videosUri, vidProjection, vidSelection, vidSelectionArgs, null)) {
             if (cursor != null) {
@@ -1434,11 +3596,19 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
     @Override
     public void onRequestPermissionsResult(int rc, @NonNull String[] p, @NonNull int[] g) {
         super.onRequestPermissionsResult(rc, p, g);
-        if (rc == REQUEST_CODE_PERMISSIONS && allPermissionsGranted()) {
-            initializeExtensionsAndStartCamera();
-        } else {
-            Toast.makeText(this, "Permissions required", Toast.LENGTH_SHORT).show();
-            finish();
+        if (rc == REQUEST_CODE_PERMISSIONS) {
+            if (allPermissionsGranted()) {
+                initializeExtensionsAndStartCamera();
+            } else {
+                Toast.makeText(this, "Permissions required", Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        } else if (rc == 100) {
+            if (g.length > 0 && g[0] == PackageManager.PERMISSION_GRANTED) {
+                startLocationTracking();
+            } else {
+                Toast.makeText(this, "Location permission denied", Toast.LENGTH_SHORT).show();
+            }
         }
     }
 
@@ -1552,40 +3722,45 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         @NonNull
         @Override
         public ViewHolder onCreateViewHolder(@NonNull android.view.ViewGroup parent, int viewType) {
-            TextView tv = new TextView(parent.getContext());
-            tv.setLayoutParams(new ViewGroup.MarginLayoutParams(160, 160));
-            tv.setGravity(android.view.Gravity.CENTER);
-            tv.setTextSize(11);
-            tv.setPadding(8, 8, 8, 8);
-            return new ViewHolder(tv);
+            View view = android.view.LayoutInflater.from(parent.getContext()).inflate(R.layout.lens_item, parent, false);
+            return new ViewHolder(view);
         }
 
         @Override
         public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
             String name = lenses[position];
-            holder.textView.setText(name);
             
-            android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable();
-            gd.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+            View lensCircle = holder.itemView.findViewById(R.id.lens_circle);
+            TextView emojiView = holder.itemView.findViewById(R.id.lens_emoji);
             
-            if (name.equals(activeLens)) {
-                holder.textView.setTextColor(android.graphics.Color.parseColor("#00F2FF"));
-                gd.setColor(android.graphics.Color.parseColor("#1A00F2FF"));
-                gd.setStroke(4, android.graphics.Color.parseColor("#00F2FF"));
-            } else {
-                holder.textView.setTextColor(android.graphics.Color.WHITE);
-                gd.setColor(android.graphics.Color.parseColor("#4D000000"));
-                gd.setStroke(2, android.graphics.Color.parseColor("#4DFFFFFF"));
-            }
-            holder.textView.setBackground(gd);
+            // Set emoji representing the lens type
+            String emoji = "👻";
+            if (name.equals("None")) emoji = "🚫";
+            else if (name.equals("Dog")) emoji = "🐶";
+            else if (name.equals("Glasses")) emoji = "🕶️";
+            else if (name.equals("Crown")) emoji = "👑";
+            else if (name.equals("Stache")) emoji = "🥸";
+            else if (name.equals("Neon Devil")) emoji = "😈";
+            else if (name.equals("Angel Halo")) emoji = "😇";
+            else if (name.equals("Cyberpunk HUD")) emoji = "🤖";
+            
+            if (emojiView != null) emojiView.setText(emoji);
 
-            ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) holder.textView.getLayoutParams();
-            if (params != null) {
-                params.setMargins(16, 0, 16, 0);
-                holder.textView.setLayoutParams(params);
+            // Set Border Stroke for Selected Lens
+            if (lensCircle != null) {
+                android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable();
+                gd.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+                if (name.equals(activeLens)) {
+                    gd.setColor(android.graphics.Color.parseColor("#33FFFC00")); // semi-transparent Snapchat Yellow
+                    gd.setStroke(4, android.graphics.Color.parseColor("#FFFC00")); // solid Snapchat Yellow
+                } else {
+                    gd.setColor(android.graphics.Color.parseColor("#4D000000")); // dark glass
+                    gd.setStroke(2, android.graphics.Color.parseColor("#80FFFFFF")); // faint white
+                }
+                lensCircle.setBackground(gd);
             }
 
-            holder.textView.setOnClickListener(v -> {
+            holder.itemView.setOnClickListener(v -> {
                 activeLens = name;
                 notifyDataSetChanged();
                 if (listener != null) listener.onLensClick(name);
@@ -1596,8 +3771,7 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         public int getItemCount() { return lenses.length; }
 
         static class ViewHolder extends androidx.recyclerview.widget.RecyclerView.ViewHolder {
-            TextView textView;
-            ViewHolder(TextView tv) { super(tv); this.textView = tv; }
+            ViewHolder(View view) { super(view); }
         }
     }
 

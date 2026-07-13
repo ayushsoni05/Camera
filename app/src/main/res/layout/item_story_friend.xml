@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="8dp">
+
+    <!-- Outer ring container for the gradient border -->
+    <FrameLayout
+        android:id="@+id/story_border_ring"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:padding="3dp"
+        android:background="@drawable/story_gradient_border">
+
+        <!-- Inner circle with dark background -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/glass_rec_pill"
+            android:backgroundTint="#0E0E10"
+            android:padding="2dp">
+
+            <!-- Circular avatar background representing Bitmoji color -->
+            <FrameLayout
+                android:id="@+id/story_avatar_bg"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/glass_rec_pill"
+                android:backgroundTint="#FFFC00">
+
+                <TextView
+                    android:id="@+id/story_avatar_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:text="👻"
+                    android:textSize="22sp" />
+
+            </FrameLayout>
+
+        </FrameLayout>
+
+    </FrameLayout>
+
+    <!-- Name Label -->
+    <TextView
+        android:id="@+id/story_friend_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/white"
+        android:textSize="11sp"
+        android:layout_marginTop="6dp"
+        android:text="Alex"
+        android:ellipsize="end"
+        android:maxLines="1" />
+
+</LinearLayout>

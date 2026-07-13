@@ -1,0 +1,22 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Magnifying glass — Explore icon -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeWidth="2.2"
+        android:strokeColor="#FFFFFF"
+        android:pathData="M10,10m-7,0a7,7 0,1,1 14,0a7,7 0,1,1 -14,0" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeWidth="2.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:pathData="M21,21l-6,-6" />
+    <!-- Small blue dot indicator -->
+    <path
+        android:fillColor="#00F2FF"
+        android:pathData="M18,6m-2,0a2,2 0,1,1 4,0a2,2 0,1,1 -4,0" />
+</vector>

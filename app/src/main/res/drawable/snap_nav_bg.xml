@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Snapchat Bottom Nav background: #0A0A0A + white/10 top separator line -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Near-black solid fill matching Stitch design spec #0A0A0A -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#F00A0A0A" />
+        </shape>
+    </item>
+    <!-- Very subtle white top border (15% opacity) -->
+    <item android:bottom="71dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#26FFFFFF" />
+        </shape>
+    </item>
+</layer-list>

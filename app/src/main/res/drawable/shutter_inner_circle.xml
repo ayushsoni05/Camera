@@ -2,7 +2,7 @@
     android:color="#40FFFFFF">
     <item>
         <shape android:shape="oval">
-            <solid android:color="@color/white" />
+            <solid android:color="#FFFC00" />
             <size
                 android:width="60dp"
                 android:height="60dp" />

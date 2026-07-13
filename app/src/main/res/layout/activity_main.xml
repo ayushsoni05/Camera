@@ -8,11 +8,12 @@
     android:background="@color/black"
     tools:context=".MainActivity">
 
-    <!-- ==================== CAMERA LAYER ==================== -->
+    <!-- ==================== CAMERA LAYER (TAB 3) ==================== -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/camera_layer"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:visibility="visible">
 
         <!-- Viewfinder -->
         <androidx.camera.view.PreviewView
@@ -60,7 +61,14 @@
             android:orientation="vertical"
             app:layout_constraintGuide_percent="0.66" />
 
-        <!-- Grid Visuals -->
+        <!-- Invisible anchor guideline for shutter positioning (96dp from bottom) -->
+        <androidx.constraintlayout.widget.Guideline
+            android:id="@+id/bottom_nav_anchor"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            app:layout_constraintGuide_end="96dp" />
+
         <View android:id="@+id/grid_line_h1" android:layout_width="match_parent" android:layout_height="1dp" android:background="#40FFFFFF" android:visibility="gone" app:layout_constraintTop_toTopOf="@id/h_guide_1" />
         <View android:id="@+id/grid_line_h2" android:layout_width="match_parent" android:layout_height="1dp" android:background="#40FFFFFF" android:visibility="gone" app:layout_constraintTop_toTopOf="@id/h_guide_2" />
         <View android:id="@+id/grid_line_v1" android:layout_width="1dp" android:layout_height="match_parent" android:background="#40FFFFFF" android:visibility="gone" app:layout_constraintStart_toStartOf="@id/v_guide_1" />
@@ -83,70 +91,147 @@
             app:layout_constraintTop_toTopOf="parent" />
         <View
             android:layout_width="match_parent"
-            android:layout_height="150dp"
+            android:layout_height="180dp"
             android:background="@drawable/gradient_scrim_bottom"
             app:layout_constraintBottom_toBottomOf="parent" />
 
-        <!-- ===== TOP CONTROLS ===== -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnFlash"
-            style="@style/Widget.Material3.Button.IconButton"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+        <!-- ===== TOP PROFILE & SEARCH HEADER ROW ===== -->
+        <RelativeLayout
+            android:id="@+id/top_bar_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:layout_marginTop="36dp"
-            android:layout_marginStart="16dp"
-            app:icon="@drawable/ic_flash_off"
-            app:iconSize="24dp"
-            app:iconTint="@color/white"
-            android:backgroundTint="@color/transparent"
-            android:contentDescription="@string/flash_toggle"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toStartOf="parent" />
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            app:layout_constraintTop_toTopOf="parent">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnFlip"
-            style="@style/Widget.Material3.Button.IconButton"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginTop="36dp"
+            <!-- Profile Badge (Yellow circle + avatar silhouette) -->
+            <FrameLayout
+                android:id="@+id/btn_profile"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_alignParentStart="true"
+                android:layout_centerVertical="true"
+                android:background="@drawable/glass_rec_pill"
+                android:backgroundTint="@color/snap_yellow"
+                android:elevation="4dp">
+                
+                <ImageView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:src="@android:drawable/ic_menu_myplaces"
+                    app:tint="@color/black" />
+            </FrameLayout>
+
+            <!-- Search Button (magnifying glass) next to profile -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_search"
+                style="@style/Widget.Material3.Button.IconButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_toEndOf="@id/btn_profile"
+                android:layout_marginStart="12dp"
+                android:layout_centerVertical="true"
+                app:icon="@android:drawable/ic_menu_search"
+                app:iconSize="18dp"
+                app:iconTint="@color/white"
+                android:backgroundTint="#4D000000"
+                app:cornerRadius="20dp" />
+
+            <!-- Add Friend Button on the right -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_add_friend"
+                style="@style/Widget.Material3.Button.IconButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                app:icon="@android:drawable/ic_menu_add"
+                app:iconSize="18dp"
+                app:iconTint="@color/white"
+                android:backgroundTint="#4D000000"
+                app:cornerRadius="20dp" />
+
+        </RelativeLayout>
+
+        <!-- ===== VERTICAL CONTROLS PILL (RIGHT SIDE) ===== -->
+        <LinearLayout
+            android:id="@+id/vertical_controls_pill"
+            android:layout_width="44dp"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_marginTop="16dp"
             android:layout_marginEnd="16dp"
-            app:icon="@drawable/ic_flip_camera"
-            app:iconSize="24dp"
-            app:iconTint="@color/white"
-            android:backgroundTint="@color/transparent"
-            android:contentDescription="@string/flip_camera"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintEnd_toEndOf="parent" />
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:background="@drawable/glass_rec_pill"
+            android:backgroundTint="#4D000000"
+            android:elevation="4dp"
+            app:layout_constraintTop_toBottomOf="@id/top_bar_container"
+            app:layout_constraintEnd_toEndOf="parent">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnGrid"
-            style="@style/Widget.Material3.Button.IconButton"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginTop="36dp"
-            app:icon="@drawable/ic_grid"
-            app:iconSize="24dp"
-            app:iconTint="@color/white"
-            android:backgroundTint="@color/transparent"
-            android:contentDescription="@string/grid_toggle"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/btnFlip"
-            android:layout_marginEnd="8dp" />
+            <!-- 1. Scissors -->
+            <ImageButton
+                android:id="@+id/btnScissors"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:background="@color/transparent"
+                android:src="@drawable/ic_tool_scissors"
+                app:tint="@color/white"
+                android:contentDescription="Scissors"
+                android:scaleType="centerInside" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnTimer"
-            style="@style/Widget.Material3.Button.IconButton"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginTop="36dp"
-            app:icon="@drawable/ic_timer"
-            app:iconSize="24dp"
-            app:iconTint="@color/white"
-            android:backgroundTint="@color/transparent"
-            android:contentDescription="@string/timer_toggle"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/btnGrid"
-            android:layout_marginEnd="8dp" />
+            <!-- 2. Frames -->
+            <ImageButton
+                android:id="@+id/btnFrames"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_marginTop="8dp"
+                android:background="@color/transparent"
+                android:src="@drawable/ic_tool_frames"
+                app:tint="@color/white"
+                android:contentDescription="Frames"
+                android:scaleType="centerInside" />
+
+            <!-- 3. Music -->
+            <ImageButton
+                android:id="@+id/btnMusic"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_marginTop="8dp"
+                android:background="@color/transparent"
+                android:src="@drawable/ic_tool_music"
+                app:tint="@color/white"
+                android:contentDescription="Music"
+                android:scaleType="centerInside" />
+
+            <!-- 4. Snap -->
+            <ImageButton
+                android:id="@+id/btnSnapTool"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_marginTop="8dp"
+                android:background="@color/transparent"
+                android:src="@drawable/ic_tool_snap"
+                app:tint="@color/white"
+                android:contentDescription="Snap"
+                android:scaleType="centerInside" />
+
+            <!-- 5. Plus -->
+            <ImageButton
+                android:id="@+id/btnPlus"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_marginTop="8dp"
+                android:background="@color/transparent"
+                android:src="@drawable/ic_tool_plus"
+                app:tint="@color/white"
+                android:contentDescription="Plus"
+                android:scaleType="centerInside" />
+
+        </LinearLayout>
 
         <!-- Recording Timer Overlay -->
         <LinearLayout
@@ -250,46 +335,24 @@
                 android:background="@color/white" />
         </FrameLayout>
 
-        <!-- ===== LENSES CAROUSEL ===== -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/lenses_carousel"
-            android:layout_width="match_parent"
-            android:layout_height="80dp"
-            android:orientation="horizontal"
-            android:paddingStart="20dp"
-            android:paddingEnd="20dp"
-            android:clipToPadding="false"
-            android:layout_marginBottom="8dp"
-            app:layout_constraintBottom_toTopOf="@id/filter_list" />
-
-        <!-- ===== FILTER CAROUSEL ===== -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/filter_list"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginBottom="16dp"
-            android:orientation="horizontal"
-            android:paddingStart="40dp"
-            android:paddingEnd="40dp"
-            android:clipToPadding="false"
-            app:layout_constraintBottom_toTopOf="@id/capture_container" />
-
-        <!-- ===== CAPTURE BUTTON with Record Ring ===== -->
+        <!-- ===== STATIC SHUTTER BUTTON (Fixed above nav bar — never moves) ===== -->
         <FrameLayout
             android:id="@+id/capture_container"
-            android:layout_width="92dp"
-            android:layout_height="92dp"
-            android:layout_marginBottom="32dp"
-            app:layout_constraintBottom_toBottomOf="parent"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:layout_marginBottom="4dp"
+            app:layout_constraintBottom_toTopOf="@+id/bottom_nav_anchor"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
 
-            <!-- Record Progress Ring (animated via ProgressBar) -->
+            <!-- Record Progress Ring -->
             <ProgressBar
                 android:id="@+id/record_progress"
                 style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="88dp"
-                android:layout_height="88dp"
+                android:layout_width="76dp"
+                android:layout_height="76dp"
                 android:layout_gravity="center"
                 android:indeterminate="false"
                 android:max="100"
@@ -299,36 +362,50 @@
 
             <!-- Outer Ring -->
             <View
-                android:layout_width="84dp"
-                android:layout_height="84dp"
+                android:layout_width="76dp"
+                android:layout_height="76dp"
                 android:layout_gravity="center"
                 android:background="@drawable/shutter_outer_ring" />
 
-            <!-- Inner Circle (The clickable shutter) -->
+            <!-- Inner Shutter Circle -->
             <ImageButton
                 android:id="@+id/image_capture_button"
-                android:layout_width="68dp"
-                android:layout_height="68dp"
+                android:layout_width="62dp"
+                android:layout_height="62dp"
                 android:layout_gravity="center"
                 android:background="@drawable/shutter_inner_circle"
-                android:contentDescription="@string/capture_photo"
-                android:elevation="4dp" />
+                android:contentDescription="@string/capture_photo" />
         </FrameLayout>
 
-        <!-- Camera Flip (bottom right) -->
+        <!-- ===== LENSES CAROUSEL (Aligned directly to bottom_nav_anchor guideline) ===== -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/lenses_carousel"
+            android:layout_width="match_parent"
+            android:layout_height="80dp"
+            android:orientation="horizontal"
+            android:paddingStart="160dp"
+            android:paddingEnd="160dp"
+            android:clipToPadding="false"
+            android:elevation="12dp"
+            app:layout_constraintBottom_toTopOf="@id/bottom_nav_anchor"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+
+        <!-- Memories Preview (bottom left, aligned to capture_container) -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/gallery_container"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="32dp"
-            android:backgroundTint="#20FFFFFF"
-            app:cardCornerRadius="24dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginStart="24dp"
+            android:backgroundTint="#26000000"
+            app:cardCornerRadius="22dp"
             app:cardElevation="8dp"
+            app:layout_constraintTop_toTopOf="@id/capture_container"
             app:layout_constraintBottom_toBottomOf="@id/capture_container"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="@id/capture_container"
             app:strokeColor="@color/white"
-            app:strokeWidth="2dp">
+            app:strokeWidth="1.5dp">
             <ImageView
                 android:id="@+id/last_image_preview"
                 android:layout_width="match_parent"
@@ -338,7 +415,1004 @@
                 android:src="@drawable/ic_gallery" />
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Floating Filter Name Indicator (appears temporarily on swipe) -->
+        <TextView
+            android:id="@+id/filter_name_indicator"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/white"
+            android:textSize="32sp"
+            android:textStyle="bold"
+            android:shadowColor="#80000000"
+            android:shadowDx="2"
+            android:shadowDy="2"
+            android:shadowRadius="4"
+            android:alpha="0"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- ===== FILTER CAROUSEL (HIDDEN - swipe instead) ===== -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/filter_list"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
     </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- ==================== MAP LAYER (TAB 1) ==================== -->
+    <FrameLayout
+        android:id="@+id/map_layer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        android:background="#12121A">
+
+        <!-- Live Leaflet.js WebView Map -->
+        <WebView
+            android:id="@+id/map_webview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <!-- Map Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingTop="36dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:background="@drawable/gradient_scrim_top">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Snap Map"
+                android:textColor="@color/white"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                app:cardCornerRadius="22dp"
+                app:cardBackgroundColor="#26FFFFFF"
+                android:layout_marginTop="12dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp">
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:src="@android:drawable/ic_menu_search"
+                        app:tint="@color/white" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Search Map..."
+                        android:textColor="#B3FFFFFF"
+                        android:textSize="14sp"
+                        android:layout_marginStart="8dp" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+        </LinearLayout>
+
+        <!-- Bottom Trending Spots Drawer -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:background="@drawable/glass_rec_pill"
+            android:backgroundTint="#CC12121A"
+            android:layout_margin="12dp"
+            android:layout_marginBottom="80dp"
+            android:padding="16dp">
+            
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+                
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Trending Near You"
+                    android:textColor="@color/white"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="10dp" />
+
+                <HorizontalScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:scrollbars="none">
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <!-- Spot 1: Joe's Coffee -->
+                        <LinearLayout
+                            android:layout_width="140dp"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:layout_marginEnd="12dp"
+                            android:background="@drawable/glass_rec_pill"
+                            android:backgroundTint="#2E2E3E"
+                            android:padding="8dp">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="☕ Joe's Coffee"
+                                android:textColor="@color/white"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Packed with students"
+                                android:textColor="#B3FFFFFF"
+                                android:textSize="10sp"
+                                android:layout_marginTop="2dp" />
+                        </LinearLayout>
+
+                        <!-- Spot 2: Central Park -->
+                        <LinearLayout
+                            android:layout_width="140dp"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:layout_marginEnd="12dp"
+                            android:background="@drawable/glass_rec_pill"
+                            android:backgroundTint="#2E2E3E"
+                            android:padding="8dp">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="🌳 Central Park"
+                                android:textColor="@color/white"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Sunny day vibes"
+                                android:textColor="#B3FFFFFF"
+                                android:textSize="10sp"
+                                android:layout_marginTop="2dp" />
+                        </LinearLayout>
+
+                        <!-- Spot 3: Tech Hub -->
+                        <LinearLayout
+                            android:layout_width="140dp"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:background="@drawable/glass_rec_pill"
+                            android:backgroundTint="#2E2E3E"
+                            android:padding="8dp">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="💻 Tech Hub"
+                                android:textColor="@color/white"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Hackathon in progress"
+                                android:textColor="#B3FFFFFF"
+                                android:textSize="10sp"
+                                android:layout_marginTop="2dp" />
+                        </LinearLayout>
+
+                    </LinearLayout>
+                </HorizontalScrollView>
+            </LinearLayout>
+        </FrameLayout>
+    </FrameLayout>    <!-- ==================== CHAT LAYER (TAB 2) ==================== -->
+    <FrameLayout
+        android:id="@+id/chat_layer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        android:background="#1A1A24">
+
+        <!-- Chat Main Screen -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical">
+
+            <!-- Header -->
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="36dp"
+                android:paddingBottom="12dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:background="#22222E">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Chat"
+                    android:textColor="@color/white"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:layout_alignParentStart="true" />
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_alignParentEnd="true"
+                    android:gravity="center_vertical">
+                    <!-- Create Group Chat Icon -->
+                    <ImageView
+                        android:id="@+id/btn_create_group"
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
+                        android:src="@android:drawable/ic_menu_share"
+                        app:tint="@color/snap_yellow"
+                        android:layout_marginEnd="16dp"
+                        android:contentDescription="Create Group" />
+                    <!-- New Chat Button -->
+                    <ImageView
+                        android:id="@+id/btn_new_chat"
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
+                        android:src="@android:drawable/ic_menu_edit"
+                        app:tint="@color/ui_highlight"
+                        android:contentDescription="New Chat" />
+                </LinearLayout>
+            </RelativeLayout>
+
+            <!-- Friend Chat list -->
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:paddingBottom="80dp">
+                
+                <LinearLayout
+                    android:id="@+id/chat_list_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="8dp" />
+            </ScrollView>
+        </LinearLayout>
+
+        <!-- Interactive Messaging Panel -->
+        <LinearLayout
+            android:id="@+id/chat_panel"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:background="#1E1E2C"
+            android:elevation="25dp"
+            android:visibility="gone">
+
+            <!-- Panel Header -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:background="#1E1E2C">
+                
+                <ImageButton
+                    android:id="@+id/chat_panel_back"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@color/transparent"
+                    android:src="@drawable/ic_back"
+                    app:tint="@color/white" />
+
+                <!-- Bitmoji Avatar Placeholder -->
+                <FrameLayout
+                    android:id="@+id/chat_avatar_container"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/glass_rec_pill"
+                    android:backgroundTint="#FFFC00"> <!-- yellow bitmoji bg -->
+                    <TextView
+                        android:id="@+id/chat_avatar_text"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:text="👻"
+                        android:textSize="18sp" />
+                </FrameLayout>
+
+                <!-- Name & Status -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+                    <TextView
+                        android:id="@+id/chat_panel_title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/white"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:text="Alex" />
+                    <!-- Subtitle online status -->
+                    <TextView
+                        android:id="@+id/chat_header_status"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="#80FFFFFF"
+                        android:textSize="10sp"
+                        android:text="Active Now" />
+                </LinearLayout>
+
+                <!-- Telephone Call Icon -->
+                <ImageButton
+                    android:id="@+id/chat_btn_call"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@color/transparent"
+                    android:src="@android:drawable/stat_sys_phone_call"
+                    app:tint="@color/white"
+                    android:layout_marginEnd="4dp" />
+
+                <!-- Video Call Icon -->
+                <ImageButton
+                    android:id="@+id/chat_btn_video_call"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@color/transparent"
+                    android:src="@android:drawable/presence_video_online"
+                    app:tint="@color/white"
+                    android:layout_marginEnd="4dp" />
+
+                <!-- Identity Swap Toggle -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/chat_btn_switch_identity"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="Swap"
+                    android:textColor="@color/snap_yellow"
+                    android:textSize="10sp"
+                    android:backgroundTint="#20FFFFFF"
+                    app:cornerRadius="18dp" />
+            </LinearLayout>
+
+            <!-- Search Bar Input Container -->
+            <LinearLayout
+                android:id="@+id/chat_search_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="#2E2E3E"
+                android:padding="8dp"
+                android:orientation="horizontal"
+                android:visibility="gone">
+                <EditText
+                    android:id="@+id/chat_search_input"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/glass_rec_pill"
+                    android:hint="Search conversation..."
+                    android:textColorHint="#80FFFFFF"
+                    android:textColor="@color/white"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:textSize="12sp" />
+                <ImageButton
+                    android:id="@+id/chat_search_close"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@color/transparent"
+                    android:src="@android:drawable/ic_menu_close_clear_cancel"
+                    app:tint="@color/white" />
+            </LinearLayout>
+
+            <!-- Collapsible Pinned Messages banner -->
+            <LinearLayout
+                android:id="@+id/chat_pinned_banner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="#3E3E4E"
+                android:padding="8dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:visibility="gone">
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@android:drawable/btn_star_big_on"
+                    app:tint="@color/snap_yellow"
+                    android:layout_marginEnd="6dp" />
+                <TextView
+                    android:id="@+id/chat_pinned_text"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textSize="12sp"
+                    android:textColor="@color/white"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:text="Pinned message preview" />
+                <ImageButton
+                    android:id="@+id/chat_pinned_close"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:background="@color/transparent"
+                    android:src="@android:drawable/ic_menu_close_clear_cancel"
+                    app:tint="@color/white" />
+            </LinearLayout>
+
+            <!-- Chat messages box -->
+            <ScrollView
+                android:id="@+id/chat_scroll"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:padding="16dp">
+                <LinearLayout
+                    android:id="@+id/chat_messages_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </ScrollView>
+
+            <!-- Typing indicator -->
+            <TextView
+                android:id="@+id/chat_typing_indicator"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_marginBottom="4dp"
+                android:textColor="@color/snap_yellow"
+                android:textSize="11sp"
+                android:visibility="gone"
+                android:text="Alex is typing..." />
+
+            <!-- Reply preview bar -->
+            <RelativeLayout
+                android:id="@+id/chat_reply_preview_bar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="#2E2E3E"
+                android:padding="8dp"
+                android:visibility="gone">
+                <TextView
+                    android:id="@+id/chat_reply_preview_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Replying to Alex"
+                    android:textSize="11sp"
+                    android:textColor="@color/ui_highlight"
+                    android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/chat_reply_preview_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_below="@id/chat_reply_preview_title"
+                    android:textSize="12sp"
+                    android:textColor="#B3FFFFFF"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+                <ImageView
+                    android:id="@+id/chat_reply_preview_close"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_alignParentEnd="true"
+                    android:layout_centerVertical="true"
+                    android:src="@android:drawable/ic_menu_close_clear_cancel"
+                    app:tint="@color/white" />
+            </RelativeLayout>
+
+            <!-- Input Bar -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:background="#151522">
+
+                <!-- Main Pill Container -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_weight="1"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="@drawable/glass_rec_pill"
+                    android:backgroundTint="#2A2A38"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp">
+
+                    <!-- Instant Camera Button -->
+                    <ImageButton
+                        android:id="@+id/chat_btn_instant_camera"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:background="@color/transparent"
+                        android:src="@drawable/ic_camera"
+                        app:tint="@color/white"
+                        android:contentDescription="Instant Camera" />
+
+                    <!-- Input Box -->
+                    <EditText
+                        android:id="@+id/chat_input"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:background="@color/transparent"
+                        android:hint="Send a chat..."
+                        android:textColorHint="#60FFFFFF"
+                        android:textColor="@color/white"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="10dp"
+                        android:textSize="14sp"
+                        android:imeOptions="actionSend"
+                        android:inputType="textShortMessage|textAutoCorrect" />
+
+                    <!-- Mic recording indicator button (inside pill) -->
+                    <ImageButton
+                        android:id="@+id/chat_mic_btn"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:background="@color/transparent"
+                        android:src="@android:drawable/ic_btn_speak_now"
+                        app:tint="@color/white"
+                        android:contentDescription="Voice note" />
+
+                    <!-- Stickers/Emoji Button -->
+                    <ImageButton
+                        android:id="@+id/chat_sticker_btn"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:background="@color/transparent"
+                        android:src="@android:drawable/btn_star_big_off"
+                        app:tint="@color/white"
+                        android:contentDescription="Stickers" />
+
+                    <!-- Gallery Button -->
+                    <ImageButton
+                        android:id="@+id/chat_attach_btn"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:background="@color/transparent"
+                        android:src="@drawable/ic_gallery"
+                        app:tint="@color/white"
+                        android:contentDescription="Gallery" />
+
+                </LinearLayout>
+
+                <!-- Snapchat-style Send text action button -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/chat_send_btn"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="44dp"
+                    android:text="Send"
+                    android:textColor="#00B6FF"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:visibility="gone"
+                    android:layout_marginStart="4dp" />
+
+            </LinearLayout>
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- ==================== STORIES LAYER (TAB 4) ==================== -->
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/stories_layer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        android:background="#151522"
+        android:paddingBottom="80dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Header -->
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="36dp"
+                android:paddingBottom="12dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:background="#20202C">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Stories"
+                    android:textColor="@color/white"
+                    android:textSize="24sp"
+                    android:textStyle="bold" />
+            </RelativeLayout>
+
+            <!-- Friend Stories Row -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Friends Stories"
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="8dp" />
+
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="none"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp">
+                <LinearLayout
+                    android:id="@+id/stories_friends_container"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal" />
+            </HorizontalScrollView>
+
+            <!-- Discover grid title -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Discover"
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="12dp" />
+
+            <!-- Grid container -->
+            <GridLayout
+                android:id="@+id/stories_discover_grid"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:columnCount="2"
+                android:alignmentMode="alignMargins"
+                android:columnOrderPreserved="false"
+                android:padding="8dp" />
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+    <!-- Fullscreen story viewer overlay -->
+    <FrameLayout
+        android:id="@+id/story_viewer_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        android:elevation="60dp"
+        android:background="@color/black">
+        
+        <ImageView
+            android:id="@+id/story_viewer_image"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop" />
+
+        <VideoView
+            android:id="@+id/story_viewer_video"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:visibility="gone" />
+
+        <ImageButton
+            android:id="@+id/story_viewer_close"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginTop="40dp"
+            android:layout_marginStart="16dp"
+            android:background="@color/transparent"
+            android:src="@drawable/ic_back"
+            app:tint="@color/white" />
+    </FrameLayout>
+
+    <!-- ==================== SPOTLIGHT LAYER (TAB 5) ==================== -->
+    <FrameLayout
+        android:id="@+id/spotlight_layer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        android:background="@color/black">
+
+        <!-- Spotlight Feed Vertical Scroller -->
+        <androidx.viewpager2.widget.ViewPager2
+            android:id="@+id/spotlight_viewpager"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical" />
+    </FrameLayout>
+
+    <!-- ==================== PREMIUM FLOATING CAPSULE BOTTOM NAVIGATION ==================== -->
+    <!-- Floating bar container: floats 16dp above the bottom of the screen -->
+    <FrameLayout
+        android:id="@+id/bottom_nav_container"
+        android:layout_width="match_parent"
+        android:layout_height="88dp"
+        android:layout_gravity="bottom"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:elevation="20dp">
+
+        <LinearLayout
+            android:id="@+id/bottom_nav_bar"
+            android:layout_width="match_parent"
+            android:layout_height="72dp"
+            android:layout_gravity="bottom"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="16dp"
+            android:orientation="horizontal"
+            android:background="@drawable/snap_floating_nav_bg"
+            android:gravity="center_vertical"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:baselineAligned="false">
+
+            <!-- TAB 1: MAP -->
+            <LinearLayout
+                android:id="@+id/nav_create"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackgroundBorderless">
+
+                <!-- Vertical Highlight Container -->
+                <LinearLayout
+                    android:id="@+id/nav_create_capsule"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:background="@android:color/transparent">
+                    <ImageView
+                        android:id="@+id/nav_create_icon"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:src="@drawable/ic_map"
+                        app:tint="#B3FFFFFF" />
+                    <TextView
+                        android:id="@+id/nav_create_label"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Map"
+                        android:textSize="10sp"
+                        android:textColor="#B3FFFFFF"
+                        android:fontFamily="sans-serif-medium"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- TAB 2: CHAT -->
+            <LinearLayout
+                android:id="@+id/nav_scan"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackgroundBorderless">
+
+                <!-- Vertical Highlight Container -->
+                <LinearLayout
+                    android:id="@+id/nav_scan_capsule"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:background="@android:color/transparent">
+                    <ImageView
+                        android:id="@+id/nav_scan_icon"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:src="@drawable/ic_chat"
+                        app:tint="#B3FFFFFF" />
+                    <TextView
+                        android:id="@+id/nav_scan_label"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Chat"
+                        android:textSize="10sp"
+                        android:textColor="#B3FFFFFF"
+                        android:fontFamily="sans-serif-medium"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- TAB 3: CAMERA / SHUTTER -->
+            <LinearLayout
+                android:id="@+id/nav_close"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackgroundBorderless">
+
+                <!-- Vertical Highlight Container -->
+                <LinearLayout
+                    android:id="@+id/nav_close_capsule"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:background="@android:color/transparent">
+                    <ImageView
+                        android:id="@+id/nav_close_icon_preview"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:src="@drawable/ic_camera"
+                        app:tint="#B3FFFFFF" />
+                    <TextView
+                        android:id="@+id/nav_close_label"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Camera"
+                        android:textSize="10sp"
+                        android:textColor="#B3FFFFFF"
+                        android:fontFamily="sans-serif-medium"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- TAB 4: STORIES -->
+            <LinearLayout
+                android:id="@+id/nav_browse"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackgroundBorderless">
+
+                <!-- Vertical Highlight Container -->
+                <LinearLayout
+                    android:id="@+id/nav_browse_capsule"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:background="@android:color/transparent">
+                    <ImageView
+                        android:id="@+id/nav_browse_icon"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:src="@drawable/ic_stories"
+                        app:tint="#B3FFFFFF" />
+                    <TextView
+                        android:id="@+id/nav_browse_label"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Stories"
+                        android:textSize="10sp"
+                        android:textColor="#B3FFFFFF"
+                        android:fontFamily="sans-serif-medium"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- TAB 5: SPOTLIGHT -->
+            <LinearLayout
+                android:id="@+id/nav_explore"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackgroundBorderless">
+
+                <!-- Vertical Highlight Container -->
+                <LinearLayout
+                    android:id="@+id/nav_explore_capsule"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:background="@android:color/transparent">
+                    <ImageView
+                        android:id="@+id/nav_explore_icon"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:src="@drawable/ic_spotlight"
+                        app:tint="#B3FFFFFF" />
+                    <TextView
+                        android:id="@+id/nav_explore_label"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Spotlight"
+                        android:textSize="10sp"
+                        android:textColor="#B3FFFFFF"
+                        android:fontFamily="sans-serif-medium"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Hidden floating shutter reference view for variable binding compatibility -->
+        <View
+            android:id="@+id/nav_shutter_fab"
+            android:layout_width="1dp"
+            android:layout_height="1dp"
+            android:visibility="gone" />
+        <View
+            android:id="@+id/nav_close_icon"
+            android:layout_width="1dp"
+            android:layout_height="1dp"
+            android:visibility="gone" />
+        <View
+            android:id="@+id/nav_create_dot"
+            android:layout_width="1dp"
+            android:layout_height="1dp"
+            android:visibility="gone" />
+        <View
+            android:id="@+id/nav_scan_dot"
+            android:layout_width="1dp"
+            android:layout_height="1dp"
+            android:visibility="gone" />
+        <View
+            android:id="@+id/nav_close_dot"
+            android:layout_width="1dp"
+            android:layout_height="1dp"
+            android:visibility="gone" />
+        <View
+            android:id="@+id/nav_browse_dot"
+            android:layout_width="1dp"
+            android:layout_height="1dp"
+            android:visibility="gone" />
+        <View
+            android:id="@+id/nav_explore_dot"
+            android:layout_width="1dp"
+            android:layout_height="1dp"
+            android:visibility="gone" />
+
+    </FrameLayout>
 
     <!-- ==================== POST-CAPTURE PREVIEW LAYER ==================== -->
     <FrameLayout
@@ -346,7 +1420,8 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="gone"
-        android:background="@color/black">
+        android:background="@color/black"
+        android:elevation="40dp">
 
         <!-- Captured Photo/Video Preview -->
         <ImageView
@@ -414,7 +1489,6 @@
                 android:layout_height="40dp"
                 android:layout_marginStart="12dp"
                 android:background="@color/transparent"
-                android:text="T"
                 android:contentDescription="Text"
                 android:src="@android:drawable/ic_menu_edit"
                 app:tint="@color/white" />
@@ -502,7 +1576,7 @@
         android:layout_height="match_parent"
         android:visibility="gone"
         android:background="@color/black"
-        android:elevation="30dp">
+        android:elevation="45dp">
 
         <!-- Header -->
         <RelativeLayout
@@ -667,6 +1741,46 @@
                 android:textAllCaps="false"
                 android:textSize="16sp"
                 android:backgroundTint="@color/ui_highlight" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- ==================== ANIMATED SPLASH SCREEN OVERLAY ==================== -->
+    <FrameLayout
+        android:id="@+id/splash_screen_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/snap_yellow"
+        android:elevation="200dp"
+        android:clickable="true"
+        android:focusable="true">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_gravity="center">
+
+            <!-- SnapTake Premium Lottie Logo -->
+            <com.airbnb.lottie.LottieAnimationView
+                android:id="@+id/splash_lottie"
+                android:layout_width="160dp"
+                android:layout_height="160dp"
+                app:lottie_fileName="splash_animation.json"
+                app:lottie_loop="true"
+                app:lottie_autoPlay="true" />
+
+            <!-- Title -->
+            <TextView
+                android:id="@+id/splash_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="SnapTake"
+                android:textColor="@color/black"
+                android:textSize="36sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-black"
+                android:layout_marginTop="20dp" />
         </LinearLayout>
     </FrameLayout>
 
