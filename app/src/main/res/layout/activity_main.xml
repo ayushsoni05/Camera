@@ -1783,39 +1783,118 @@
         android:elevation="45dp">
 
         <!-- Header -->
-        <RelativeLayout
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="64dp"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
             android:paddingTop="24dp"
             android:paddingStart="16dp"
             android:paddingEnd="16dp"
             android:background="@drawable/gradient_scrim_top">
 
-            <ImageButton
-                android:id="@+id/memories_btn_back"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="@color/transparent"
-                android:src="@drawable/ic_back"
-                app:tint="@color/white"
-                android:contentDescription="Back" />
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="48dp">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_centerInParent="true"
-                android:text="@string/gallery_title"
+                <ImageButton
+                    android:id="@+id/memories_btn_back"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_alignParentStart="true"
+                    android:layout_centerVertical="true"
+                    android:background="@color/transparent"
+                    android:src="@drawable/ic_back"
+                    app:tint="@color/white"
+                    android:contentDescription="Back" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    android:text="Memories"
+                    android:textColor="@color/white"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <!-- Cloud Backup Toggle Indicator -->
+                <TextView
+                    android:id="@+id/memories_cloud_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentEnd="true"
+                    android:layout_centerVertical="true"
+                    android:text="☁️ Active"
+                    android:textColor="@color/snap_yellow"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+            </RelativeLayout>
+
+            <!-- Search input bar -->
+            <EditText
+                android:id="@+id/memories_search_input"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:background="@drawable/glass_rec_pill"
+                android:backgroundTint="#26FFFFFF"
+                android:hint="Search snaps, locations..."
+                android:textColorHint="#99FFFFFF"
                 android:textColor="@color/white"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-        </RelativeLayout>
+                android:textSize="13sp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="12dp"
+                android:maxLines="1"
+                android:inputType="text" />
+
+            <!-- Tab Headers Row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:layout_marginBottom="8dp">
+
+                <TextView
+                    android:id="@+id/memories_tab_snaps"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:text="Snaps"
+                    android:textColor="@color/white"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:background="#4DFFFFFF" />
+
+                <TextView
+                    android:id="@+id/memories_tab_roll"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:text="Camera Roll"
+                    android:textColor="#B3FFFFFF"
+                    android:textSize="13sp"
+                    android:gravity="center" />
+
+                <TextView
+                    android:id="@+id/memories_tab_private"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:text="🔒 My Eyes Only"
+                    android:textColor="#B3FFFFFF"
+                    android:textSize="13sp"
+                    android:gravity="center" />
+            </LinearLayout>
+        </LinearLayout>
 
         <!-- Gallery Grid -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/memories_grid"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_marginTop="64dp"
+            android:layout_marginTop="160dp"
             android:clipToPadding="false"
             android:padding="4dp" />
 
@@ -1843,22 +1922,55 @@
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/gallery_btn_share"
                     style="@style/Widget.Material3.Button.IconButton"
-                    android:layout_width="56dp"
-                    android:layout_height="56dp"
-                    android:layout_marginEnd="40dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_marginEnd="16dp"
                     app:icon="@drawable/ic_share"
                     app:iconTint="@color/white"
-                    app:iconSize="28dp"
+                    app:iconSize="22dp"
+                    android:backgroundTint="@color/glass_white" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/gallery_btn_fav"
+                    style="@style/Widget.Material3.Button.IconButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_marginEnd="16dp"
+                    app:icon="@android:drawable/btn_star_big_off"
+                    app:iconTint="@color/white"
+                    app:iconSize="22dp"
+                    android:backgroundTint="@color/glass_white" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/gallery_btn_archive"
+                    style="@style/Widget.Material3.Button.IconButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_marginEnd="16dp"
+                    app:icon="@android:drawable/ic_menu_save"
+                    app:iconTint="@color/white"
+                    app:iconSize="22dp"
+                    android:backgroundTint="@color/glass_white" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/gallery_btn_private"
+                    style="@style/Widget.Material3.Button.IconButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_marginEnd="16dp"
+                    app:icon="@android:drawable/ic_secure"
+                    app:iconTint="@color/white"
+                    app:iconSize="22dp"
                     android:backgroundTint="@color/glass_white" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/gallery_btn_delete"
                     style="@style/Widget.Material3.Button.IconButton"
-                    android:layout_width="56dp"
-                    android:layout_height="56dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     app:icon="@drawable/ic_delete"
                     app:iconTint="@color/white"
-                    app:iconSize="28dp"
+                    app:iconSize="22dp"
                     android:backgroundTint="@color/glass_white" />
             </LinearLayout>
 
@@ -1873,7 +1985,119 @@
                 app:tint="@color/white"
                 android:contentDescription="Back" />
         </FrameLayout>
-    </FrameLayout>
+
+        <!-- passcode overlay for My Eyes Only private folder -->
+        <FrameLayout
+            android:id="@+id/memories_private_passcode_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#F21A1B24"
+            android:elevation="110dp"
+            android:visibility="gone"
+            android:clickable="true"
+            android:focusable="true">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="24dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="My Eyes Only 🔒"
+                    android:textColor="@color/white"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Enter your 4-digit passcode"
+                    android:textColor="#B3FFFFFF"
+                    android:textSize="13sp"
+                    android:layout_marginBottom="32dp" />
+
+                <!-- Dots indicating passcode length -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="48dp">
+
+                    <TextView
+                        android:id="@+id/passcode_dot1"
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:text="○"
+                        android:textColor="@color/white"
+                        android:textSize="18sp"
+                        android:gravity="center"
+                        android:layout_margin="8dp" />
+
+                    <TextView
+                        android:id="@+id/passcode_dot2"
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:text="○"
+                        android:textColor="@color/white"
+                        android:textSize="18sp"
+                        android:gravity="center"
+                        android:layout_margin="8dp" />
+
+                    <TextView
+                        android:id="@+id/passcode_dot3"
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:text="○"
+                        android:textColor="@color/white"
+                        android:textSize="18sp"
+                        android:gravity="center"
+                        android:layout_margin="8dp" />
+
+                    <TextView
+                        android:id="@+id/passcode_dot4"
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:text="○"
+                        android:textColor="@color/white"
+                        android:textSize="18sp"
+                        android:gravity="center"
+                        android:layout_margin="8dp" />
+                </LinearLayout>
+
+                <!-- Custom Keypad -->
+                <GridLayout
+                    android:layout_width="240dp"
+                    android:layout_height="wrap_content"
+                    android:columnCount="3"
+                    android:rowCount="4"
+                    android:alignmentMode="alignMargins"
+                    android:columnOrderPreserved="false"
+                    android:layout_marginBottom="24dp">
+
+                    <Button android:id="@+id/key_1" android:text="1" style="?android:attr/buttonStyleSmall" android:textColor="@color/white" android:backgroundTint="#33FFFFFF" android:layout_margin="6dp" />
+                    <Button android:id="@+id/key_2" android:text="2" style="?android:attr/buttonStyleSmall" android:textColor="@color/white" android:backgroundTint="#33FFFFFF" android:layout_margin="6dp" />
+                    <Button android:id="@+id/key_3" android:text="3" style="?android:attr/buttonStyleSmall" android:textColor="@color/white" android:backgroundTint="#33FFFFFF" android:layout_margin="6dp" />
+                    
+                    <Button android:id="@+id/key_4" android:text="4" style="?android:attr/buttonStyleSmall" android:textColor="@color/white" android:backgroundTint="#33FFFFFF" android:layout_margin="6dp" />
+                    <Button android:id="@+id/key_5" android:text="5" style="?android:attr/buttonStyleSmall" android:textColor="@color/white" android:backgroundTint="#33FFFFFF" android:layout_margin="6dp" />
+                    <Button android:id="@+id/key_6" android:text="6" style="?android:attr/buttonStyleSmall" android:textColor="@color/white" android:backgroundTint="#33FFFFFF" android:layout_margin="6dp" />
+                    
+                    <Button android:id="@+id/key_7" android:text="7" style="?android:attr/buttonStyleSmall" android:textColor="@color/white" android:backgroundTint="#33FFFFFF" android:layout_margin="6dp" />
+                    <Button android:id="@+id/key_8" android:text="8" style="?android:attr/buttonStyleSmall" android:textColor="@color/white" android:backgroundTint="#33FFFFFF" android:layout_margin="6dp" />
+                    <Button android:id="@+id/key_9" android:text="9" style="?android:attr/buttonStyleSmall" android:textColor="@color/white" android:backgroundTint="#33FFFFFF" android:layout_margin="6dp" />
+                    
+                    <Button android:id="@+id/key_close" android:text="Cancel" style="?android:attr/buttonStyleSmall" android:textColor="@color/white" android:backgroundTint="#00000000" android:layout_margin="6dp" android:textSize="10sp" />
+                    <Button android:id="@+id/key_0" android:text="0" style="?android:attr/buttonStyleSmall" android:textColor="@color/white" android:backgroundTint="#33FFFFFF" android:layout_margin="6dp" />
+                    <Button android:id="@+id/key_del" android:text="⌫" style="?android:attr/buttonStyleSmall" android:textColor="@color/white" android:backgroundTint="#00000000" android:layout_margin="6dp" />
+                </GridLayout>
+            </LinearLayout>
+        </FrameLayout>
+        </FrameLayout>
 
     <!-- ==================== TUTORIAL OVERLAY ==================== -->
     <FrameLayout

@@ -4987,6 +4987,14 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         });
     }
 
+    private String currentMemoriesTab = "SNAPS";
+    private String memoriesSearchQuery = "";
+    private final List<Uri> favoritedMemories = new ArrayList<>();
+    private final List<Uri> archivedMemories = new ArrayList<>();
+    private final List<Uri> privateMemories = new ArrayList<>();
+    private String enteredPrivatePasscode = "";
+    private boolean isPrivateUnlocked = false;
+
     private void setupMemoriesControls() {
         androidx.recyclerview.widget.RecyclerView grid = findViewById(R.id.memories_grid);
         if (grid != null) {
@@ -4997,14 +5005,186 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         if (backBtn != null) {
             backBtn.setOnClickListener(v -> {
                 findViewById(R.id.memories_drawer).setVisibility(View.GONE);
+                isPrivateUnlocked = false; // Reset lock on exit
                 loadLastSavedThumbnail();
+            });
+        }
+
+        // Tab selection wiring
+        TextView tabSnaps = findViewById(R.id.memories_tab_snaps);
+        TextView tabRoll = findViewById(R.id.memories_tab_roll);
+        TextView tabPrivate = findViewById(R.id.memories_tab_private);
+
+        Runnable resetTabStyles = () -> {
+            if (tabSnaps != null) {
+                tabSnaps.setTextColor(android.graphics.Color.parseColor("#B3FFFFFF"));
+                tabSnaps.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+                tabSnaps.setTypeface(null, android.graphics.Typeface.NORMAL);
+            }
+            if (tabRoll != null) {
+                tabRoll.setTextColor(android.graphics.Color.parseColor("#B3FFFFFF"));
+                tabRoll.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+                tabRoll.setTypeface(null, android.graphics.Typeface.NORMAL);
+            }
+            if (tabPrivate != null) {
+                tabPrivate.setTextColor(android.graphics.Color.parseColor("#B3FFFFFF"));
+                tabPrivate.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+                tabPrivate.setTypeface(null, android.graphics.Typeface.NORMAL);
+            }
+        };
+
+        if (tabSnaps != null) {
+            tabSnaps.setOnClickListener(v -> {
+                currentMemoriesTab = "SNAPS";
+                resetTabStyles.run();
+                tabSnaps.setTextColor(android.graphics.Color.WHITE);
+                tabSnaps.setBackgroundColor(android.graphics.Color.parseColor("#4DFFFFFF"));
+                tabSnaps.setTypeface(null, android.graphics.Typeface.BOLD);
+                openMemoriesDrawer();
+            });
+        }
+
+        if (tabRoll != null) {
+            tabRoll.setOnClickListener(v -> {
+                currentMemoriesTab = "ROLL";
+                resetTabStyles.run();
+                tabRoll.setTextColor(android.graphics.Color.WHITE);
+                tabRoll.setBackgroundColor(android.graphics.Color.parseColor("#4DFFFFFF"));
+                tabRoll.setTypeface(null, android.graphics.Typeface.BOLD);
+                openMemoriesDrawer();
+            });
+        }
+
+        if (tabPrivate != null) {
+            tabPrivate.setOnClickListener(v -> {
+                currentMemoriesTab = "PRIVATE";
+                resetTabStyles.run();
+                tabPrivate.setTextColor(android.graphics.Color.WHITE);
+                tabPrivate.setBackgroundColor(android.graphics.Color.parseColor("#4DFFFFFF"));
+                tabPrivate.setTypeface(null, android.graphics.Typeface.BOLD);
+                
+                if (!isPrivateUnlocked) {
+                    enteredPrivatePasscode = "";
+                    updatePasscodeDots();
+                    findViewById(R.id.memories_private_passcode_overlay).setVisibility(View.VISIBLE);
+                } else {
+                    openMemoriesDrawer();
+                }
+            });
+        }
+
+        // Passcode Keyboard Wiring
+        View passcodeOverlay = findViewById(R.id.memories_private_passcode_overlay);
+        View keyClose = findViewById(R.id.key_close);
+        if (keyClose != null) {
+            keyClose.setOnClickListener(v -> {
+                if (passcodeOverlay != null) passcodeOverlay.setVisibility(View.GONE);
+                if (tabSnaps != null) tabSnaps.performClick();
+            });
+        }
+
+        View.OnClickListener numListener = v -> {
+            Button b = (Button) v;
+            if (enteredPrivatePasscode.length() < 4) {
+                enteredPrivatePasscode += b.getText().toString();
+                updatePasscodeDots();
+                
+                if (enteredPrivatePasscode.length() == 4) {
+                    if ("1111".equals(enteredPrivatePasscode)) {
+                        isPrivateUnlocked = true;
+                        if (passcodeOverlay != null) passcodeOverlay.setVisibility(View.GONE);
+                        openMemoriesDrawer();
+                        showToast("Unlocked Private Folder! 🔒");
+                    } else {
+                        showToast("Incorrect Passcode! ❌");
+                        enteredPrivatePasscode = "";
+                        updatePasscodeDots();
+                        
+                        // Shake feedback
+                        View layout = findViewById(R.id.memories_private_passcode_overlay);
+                        if (layout != null) {
+                            layout.animate().translationX(-15).setDuration(50).withEndAction(() -> {
+                                layout.animate().translationX(15).setDuration(50).withEndAction(() -> {
+                                    layout.animate().translationX(0).setDuration(50).start();
+                                }).start();
+                            }).start();
+                        }
+                    }
+                }
+            }
+        };
+
+        int[] numKeys = {R.id.key_1, R.id.key_2, R.id.key_3, R.id.key_4, R.id.key_5, R.id.key_6, R.id.key_7, R.id.key_8, R.id.key_9, R.id.key_0};
+        for (int id : numKeys) {
+            View k = findViewById(id);
+            if (k != null) k.setOnClickListener(numListener);
+        }
+
+        View keyDel = findViewById(R.id.key_del);
+        if (keyDel != null) {
+            keyDel.setOnClickListener(v -> {
+                if (!enteredPrivatePasscode.isEmpty()) {
+                    enteredPrivatePasscode = enteredPrivatePasscode.substring(0, enteredPrivatePasscode.length() - 1);
+                    updatePasscodeDots();
+                }
+            });
+        }
+
+        // Search text watcher
+        android.widget.EditText searchInput = findViewById(R.id.memories_search_input);
+        if (searchInput != null) {
+            searchInput.addTextChangedListener(new android.text.TextWatcher() {
+                @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    memoriesSearchQuery = s.toString().trim();
+                    openMemoriesDrawer();
+                }
+                @Override public void afterTextChanged(android.text.Editable s) {}
             });
         }
     }
 
+    private void updatePasscodeDots() {
+        TextView d1 = findViewById(R.id.passcode_dot1);
+        TextView d2 = findViewById(R.id.passcode_dot2);
+        TextView d3 = findViewById(R.id.passcode_dot3);
+        TextView d4 = findViewById(R.id.passcode_dot4);
+
+        if (d1 != null) d1.setText(enteredPrivatePasscode.length() >= 1 ? "●" : "○");
+        if (d2 != null) d2.setText(enteredPrivatePasscode.length() >= 2 ? "●" : "○");
+        if (d3 != null) d3.setText(enteredPrivatePasscode.length() >= 3 ? "●" : "○");
+        if (d4 != null) d4.setText(enteredPrivatePasscode.length() >= 4 ? "●" : "○");
+    }
+
     private void openMemoriesDrawer() {
         cameraExecutor.execute(() -> {
-            galleryItems = getCapturedMedia();
+            List<MediaItem> allMedia = getCapturedMedia();
+            List<MediaItem> filtered = new ArrayList<>();
+            
+            for (MediaItem item : allMedia) {
+                if (!memoriesSearchQuery.isEmpty()) {
+                    String title = item.uri.toString().toLowerCase();
+                    if (!title.contains(memoriesSearchQuery.toLowerCase())) {
+                        continue;
+                    }
+                }
+                
+                if ("SNAPS".equals(currentMemoriesTab)) {
+                    if (privateMemories.contains(item.uri) || archivedMemories.contains(item.uri)) {
+                        continue;
+                    }
+                    filtered.add(item);
+                } else if ("ROLL".equals(currentMemoriesTab)) {
+                    filtered.add(item);
+                } else if ("PRIVATE".equals(currentMemoriesTab)) {
+                    if (privateMemories.contains(item.uri)) {
+                        filtered.add(item);
+                    }
+                }
+            }
+            
+            galleryItems = filtered;
             runOnUiThread(() -> {
                 View drawer = findViewById(R.id.memories_drawer);
                 if (drawer != null) {
@@ -5014,7 +5194,6 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                 androidx.recyclerview.widget.RecyclerView grid = findViewById(R.id.memories_grid);
                 if (grid != null) {
                     memoriesAdapter = new MemoriesGridAdapter(this, galleryItems, position -> {
-                        // Open in pager viewer
                         openMemoriesFullscreenViewer(position);
                     });
                     grid.setAdapter(memoriesAdapter);
@@ -5038,7 +5217,7 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         if (backBtn != null) {
             backBtn.setOnClickListener(v -> {
                 if (viewer != null) viewer.setVisibility(View.GONE);
-                openMemoriesDrawer(); // refresh drawer grid
+                openMemoriesDrawer();
             });
         }
 
@@ -5051,6 +5230,92 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                         MediaItem item = galleryItems.get(pos);
                         shareMedia(item.uri, item.isImage);
                     }
+                }
+            });
+        }
+
+        com.google.android.material.button.MaterialButton favBtn = findViewById(R.id.gallery_btn_fav);
+        com.google.android.material.button.MaterialButton archiveBtn = findViewById(R.id.gallery_btn_archive);
+        com.google.android.material.button.MaterialButton privateBtn = findViewById(R.id.gallery_btn_private);
+
+        Runnable refreshViewerButtons = () -> {
+            if (viewPager != null && posIsValid(viewPager.getCurrentItem())) {
+                MediaItem item = galleryItems.get(viewPager.getCurrentItem());
+                boolean isFav = favoritedMemories.contains(item.uri);
+                if (favBtn != null) {
+                    favBtn.setIcon(ContextCompat.getDrawable(this, isFav ? android.R.drawable.btn_star_big_on : android.R.drawable.btn_star_big_off));
+                    favBtn.setIconTint(android.content.res.ColorStateList.valueOf(isFav ? android.graphics.Color.parseColor("#FFFC00") : android.graphics.Color.WHITE));
+                }
+                
+                boolean isArchived = archivedMemories.contains(item.uri);
+                if (archiveBtn != null) {
+                    archiveBtn.setIcon(ContextCompat.getDrawable(this, android.R.drawable.ic_menu_save));
+                    archiveBtn.setIconTint(android.content.res.ColorStateList.valueOf(isArchived ? android.graphics.Color.parseColor("#FFFC00") : android.graphics.Color.WHITE));
+                }
+
+                boolean isPrivate = privateMemories.contains(item.uri);
+                if (privateBtn != null) {
+                    privateBtn.setIcon(ContextCompat.getDrawable(this, android.R.drawable.ic_secure));
+                    privateBtn.setIconTint(android.content.res.ColorStateList.valueOf(isPrivate ? android.graphics.Color.parseColor("#FFFC00") : android.graphics.Color.WHITE));
+                }
+            }
+        };
+
+        if (viewPager != null) {
+            viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
+                @Override
+                public void onPageSelected(int position) {
+                    refreshViewerButtons.run();
+                }
+            });
+        }
+
+        if (favBtn != null) {
+            favBtn.setOnClickListener(v -> {
+                if (viewPager != null && posIsValid(viewPager.getCurrentItem())) {
+                    MediaItem item = galleryItems.get(viewPager.getCurrentItem());
+                    if (favoritedMemories.contains(item.uri)) {
+                        favoritedMemories.remove(item.uri);
+                        showToast("Removed from Favorites");
+                    } else {
+                        favoritedMemories.add(item.uri);
+                        showToast("Added to Favorites! ⭐");
+                    }
+                    refreshViewerButtons.run();
+                }
+            });
+        }
+
+        if (archiveBtn != null) {
+            archiveBtn.setOnClickListener(v -> {
+                if (viewPager != null && posIsValid(viewPager.getCurrentItem())) {
+                    MediaItem item = galleryItems.get(viewPager.getCurrentItem());
+                    if (archivedMemories.contains(item.uri)) {
+                        archivedMemories.remove(item.uri);
+                        showToast("Restored from Archive");
+                    } else {
+                        archivedMemories.add(item.uri);
+                        showToast("Moved to Archive! 📂");
+                    }
+                    if (viewer != null) viewer.setVisibility(View.GONE);
+                    openMemoriesDrawer();
+                }
+            });
+        }
+
+        if (privateBtn != null) {
+            privateBtn.setOnClickListener(v -> {
+                if (viewPager != null && posIsValid(viewPager.getCurrentItem())) {
+                    MediaItem item = galleryItems.get(viewPager.getCurrentItem());
+                    if (privateMemories.contains(item.uri)) {
+                        privateMemories.remove(item.uri);
+                        showToast("Moved back to Snaps");
+                    } else {
+                        privateMemories.add(item.uri);
+                        showToast("Moved to My Eyes Only! 🔒");
+                    }
+                    if (viewer != null) viewer.setVisibility(View.GONE);
+                    openMemoriesDrawer();
                 }
             });
         }
@@ -5078,6 +5343,12 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                 }
             });
         }
+        
+        refreshViewerButtons.run();
+    }
+
+    private boolean posIsValid(int pos) {
+        return pos >= 0 && pos < galleryItems.size();
     }
 
     private void initializeExtensionsAndStartCamera() {
