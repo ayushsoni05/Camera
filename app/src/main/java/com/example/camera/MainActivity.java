@@ -5029,11 +5029,11 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             List<MediaItem> media = getCapturedMedia();
             if (!media.isEmpty()) {
                 MediaItem lastItem = media.get(0);
+                Bitmap thumb = loadScaledBitmap(lastItem.uri, 120);
                 runOnUiThread(() -> {
                     ImageView lastImage = findViewById(R.id.last_image_preview);
-                    if (lastImage != null) {
-                        lastImage.setImageURI(null);
-                        lastImage.setImageURI(lastItem.uri);
+                    if (lastImage != null && thumb != null) {
+                        lastImage.setImageBitmap(thumb);
                     }
                 });
             }
