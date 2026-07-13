@@ -12,6 +12,28 @@
         android:layout_gravity="center"
         app:use_controller="false" />
 
+    <!-- Large Heart Pop Animation for Double Tap Like -->
+    <ImageView
+        android:id="@+id/reels_heart_pop"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:layout_gravity="center"
+        android:src="@android:drawable/btn_star_big_on"
+        app:tint="@color/shutter_red"
+        android:visibility="gone"
+        android:alpha="0" />
+
+    <!-- Speaker Mute/Unmute indicator overlay -->
+    <ImageView
+        android:id="@+id/reels_volume_pop"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_gravity="center"
+        android:src="@android:drawable/ic_lock_silent_mode"
+        app:tint="@color/white"
+        android:visibility="gone"
+        android:alpha="0" />
+
     <!-- Overlay Details inside each video item -->
     <RelativeLayout
         android:layout_width="match_parent"

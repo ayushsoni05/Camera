@@ -69,6 +69,10 @@ public class SpotlightAdapter extends RecyclerView.Adapter<SpotlightAdapter.Vide
         ImageView saveIcon;
         TextView followBtn;
         ImageView musicIcon;
+        ImageView heartPop;
+        ImageView volumePop;
+
+        private boolean isMuted = false;
 
         VideoViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -88,6 +92,8 @@ public class SpotlightAdapter extends RecyclerView.Adapter<SpotlightAdapter.Vide
             saveIcon = itemView.findViewById(R.id.spotlight_save_btn);
             followBtn = itemView.findViewById(R.id.spotlight_follow_btn);
             musicIcon = itemView.findViewById(R.id.spotlight_music_icon);
+            heartPop = itemView.findViewById(R.id.reels_heart_pop);
+            volumePop = itemView.findViewById(R.id.reels_volume_pop);
         }
 
         void bind(MainActivity.SpotlightItem item, int position) {
@@ -95,6 +101,93 @@ public class SpotlightAdapter extends RecyclerView.Adapter<SpotlightAdapter.Vide
             player.setMediaItem(mediaItem);
             player.prepare();
             player.setRepeatMode(ExoPlayer.REPEAT_MODE_ALL);
+            player.setVolume(isMuted ? 0f : 1f);
+
+            // Gesture detector for PlayerView touch
+            android.view.GestureDetector gestureDetector = new android.view.GestureDetector(context, new android.view.GestureDetector.SimpleOnGestureListener() {
+                @Override
+                public boolean onDoubleTap(android.view.MotionEvent e) {
+                    if (heartPop != null) {
+                        heartPop.setVisibility(View.VISIBLE);
+                        heartPop.setScaleX(0.1f);
+                        heartPop.setScaleY(0.1f);
+                        heartPop.setAlpha(1.0f);
+                        heartPop.animate()
+                                .scaleX(1.3f)
+                                .scaleY(1.3f)
+                                .setDuration(300)
+                                .setInterpolator(new android.view.animation.OvershootInterpolator(2.0f))
+                                .withEndAction(() -> {
+                                    heartPop.animate()
+                                            .alpha(0.0f)
+                                            .scaleX(1.0f)
+                                            .scaleY(1.0f)
+                                            .setDuration(200)
+                                            .withEndAction(() -> heartPop.setVisibility(View.GONE))
+                                            .start();
+                                })
+                                .start();
+                    }
+                    
+                    android.content.SharedPreferences prefs = context.getSharedPreferences("snaptake_likes", Context.MODE_PRIVATE);
+                    prefs.edit().putBoolean("liked_" + position, true).apply();
+                    if (likeIcon != null) {
+                        likeIcon.setImageResource(android.R.drawable.btn_star_big_on);
+                        likeIcon.setImageTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#FFFC00")));
+                        
+                        likeIcon.setScaleX(0.7f);
+                        likeIcon.setScaleY(0.7f);
+                        likeIcon.animate()
+                                .scaleX(1.0f)
+                                .scaleY(1.0f)
+                                .setDuration(250)
+                                .setInterpolator(new android.view.animation.OvershootInterpolator(1.4f))
+                                .start();
+                    }
+                    if (likesText != null) {
+                        likesText.setText("2.5k");
+                    }
+                    if (context instanceof MainActivity) {
+                        ((MainActivity) context).showToast("Liked Reel! ❤️");
+                    }
+                    return true;
+                }
+
+                @Override
+                public boolean onSingleTapConfirmed(android.view.MotionEvent e) {
+                    isMuted = !isMuted;
+                    player.setVolume(isMuted ? 0f : 1f);
+                    
+                    if (volumePop != null) {
+                        volumePop.setImageResource(isMuted ? android.R.drawable.ic_lock_silent_mode : android.R.drawable.ic_media_play);
+                        volumePop.setVisibility(View.VISIBLE);
+                        volumePop.setScaleX(0.5f);
+                        volumePop.setScaleY(0.5f);
+                        volumePop.setAlpha(1.0f);
+                        volumePop.animate()
+                                .scaleX(1.1f)
+                                .scaleY(1.1f)
+                                .setDuration(250)
+                                .withEndAction(() -> {
+                                    volumePop.animate()
+                                            .alpha(0.0f)
+                                            .setDuration(250)
+                                            .withEndAction(() -> volumePop.setVisibility(View.GONE))
+                                            .start();
+                                })
+                                .start();
+                    }
+                    if (context instanceof MainActivity) {
+                        ((MainActivity) context).showToast(isMuted ? "Muted 🔇" : "Unmuted 🔊");
+                    }
+                    return true;
+                }
+            });
+
+            playerView.setOnTouchListener((v, event) -> {
+                gestureDetector.onTouchEvent(event);
+                return true;
+            });
 
             if (creatorText != null) {
                 creatorText.setText(item.creator);
@@ -158,7 +251,6 @@ public class SpotlightAdapter extends RecyclerView.Adapter<SpotlightAdapter.Vide
                         likesText.setText(isLiked[0] ? "2.5k" : item.likes);
                     }
                     
-                    // Heartbeat Overshoot Animation
                     likeIcon.setScaleX(0.7f);
                     likeIcon.setScaleY(0.7f);
                     likeIcon.animate()

@@ -525,6 +525,9 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                 spotlightItems.add(new SpotlightItem("@alex_snaps", "Trying out the new custom filters on SnapTake! #aesthetic #camera", "🎵 Original Sound - alex_snaps", "2.4k", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"));
                 spotlightItems.add(new SpotlightItem("@coding_ninja", "Procedural graphics render in real-time Android! 🚀 #dev #code", "🎵 Synth Wave Mix", "15.8k", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4"));
                 spotlightItems.add(new SpotlightItem("@travel_bug", "Sunset in Santorini is just magical... 🌅 #santorini #travel", "🎵 Chill Vibes Only", "8.9k", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4"));
+                spotlightItems.add(new SpotlightItem("@reels_maker", "Walking through the cyberpunk streets at night! 🌆 #cyberpunk #neon", "🎵 Neon Rider", "12.1k", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4"));
+                spotlightItems.add(new SpotlightItem("@fitness_guru", "Morning routine prep: crushing those heavy deadlifts! 🏋️ #gym #motivation", "🎵 Power Beast Beats", "31.4k", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4"));
+                spotlightItems.add(new SpotlightItem("@food_diaries", "This delicious hot sizzling cheese pull is unreal! 🧀🍕 #foodie #pizza", "🎵 Tasty Eats Lounge", "25.6k", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4"));
             }
             final List<SpotlightItem> backup = new ArrayList<>(spotlightItems);
             SpotlightAdapter adapter = new SpotlightAdapter(this, spotlightItems);
