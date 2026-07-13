@@ -2552,6 +2552,194 @@
         </LinearLayout>
     </FrameLayout>
 
+    <!-- ==================== SPOTLIGHT COMMENTS & SHARE OVERLAYS ==================== -->
+    <!-- 1. Comments Drawer Overlay -->
+    <FrameLayout
+        android:id="@+id/spotlight_comments_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#80000000"
+        android:elevation="113dp"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="420dp"
+            android:layout_gravity="bottom"
+            app:cardCornerRadius="24dp"
+            app:cardBackgroundColor="#F21A1B24"
+            app:cardElevation="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical">
+
+                <!-- Drag Handle -->
+                <View
+                    android:layout_width="40dp"
+                    android:layout_height="4dp"
+                    android:background="#55FFFFFF"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="10dp" />
+
+                <!-- Header -->
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Comments"
+                        android:textColor="@color/white"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:layout_alignParentStart="true"
+                        android:layout_centerVertical="true" />
+
+                    <TextView
+                        android:id="@+id/spotlight_comments_close"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="❌"
+                        android:textSize="14sp"
+                        android:padding="4dp"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true" />
+                </RelativeLayout>
+
+                <!-- Scrollable Comments List -->
+                <ScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp">
+                    <LinearLayout
+                        android:id="@+id/spotlight_comments_container"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+                        <!-- Custom comments loaded dynamically -->
+                    </LinearLayout>
+                </ScrollView>
+
+                <!-- Bottom Input Section -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="64dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:padding="8dp"
+                    android:background="#26FFFFFF">
+
+                    <EditText
+                        android:id="@+id/spotlight_comment_input_text"
+                        android:layout_width="0dp"
+                        android:layout_height="40dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/glass_rec_pill"
+                        android:backgroundTint="#40FFFFFF"
+                        android:hint="Add a comment..."
+                        android:textColorHint="#B3FFFFFF"
+                        android:textColor="@color/white"
+                        android:textSize="13sp"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:inputType="textShortMessage" />
+
+                    <ImageButton
+                        android:id="@+id/spotlight_comment_submit_btn"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:src="@android:drawable/ic_menu_send"
+                        android:background="?android:attr/selectableItemBackgroundBorderless"
+                        app:tint="@color/snap_yellow"
+                        android:layout_marginStart="8dp" />
+                </LinearLayout>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+    </FrameLayout>
+
+    <!-- 2. Share Friends Drawer Overlay -->
+    <FrameLayout
+        android:id="@+id/spotlight_share_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#80000000"
+        android:elevation="114dp"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="320dp"
+            android:layout_gravity="bottom"
+            app:cardCornerRadius="24dp"
+            app:cardBackgroundColor="#F21A1B24"
+            app:cardElevation="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical">
+
+                <View
+                    android:layout_width="40dp"
+                    android:layout_height="4dp"
+                    android:background="#55FFFFFF"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="10dp" />
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Send to Friends"
+                        android:textColor="@color/white"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:layout_alignParentStart="true"
+                        android:layout_centerVertical="true" />
+
+                    <TextView
+                        android:id="@+id/spotlight_share_close"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="❌"
+                        android:textSize="14sp"
+                        android:padding="4dp"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true" />
+                </RelativeLayout>
+
+                <ScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:layout_marginBottom="16dp">
+                    <LinearLayout
+                        android:id="@+id/spotlight_share_container"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+                        <!-- Custom friends checklist dynamic loader -->
+                    </LinearLayout>
+                </ScrollView>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+    </FrameLayout>
+
     <!-- ==================== SNAPCHAT STYLE TOAST, ALERT & NOTIFICATION OVERLAYS ==================== -->
     <!-- 1. Top Slide-down Notification Bar -->
     <FrameLayout

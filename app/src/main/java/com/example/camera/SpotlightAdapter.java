@@ -63,6 +63,12 @@ public class SpotlightAdapter extends RecyclerView.Adapter<SpotlightAdapter.Vide
         TextView musicText;
         TextView likesText;
         ImageView likeIcon;
+        ImageView commentIcon;
+        TextView commentCountText;
+        ImageView shareIcon;
+        ImageView saveIcon;
+        TextView followBtn;
+        ImageView musicIcon;
 
         VideoViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -75,6 +81,13 @@ public class SpotlightAdapter extends RecyclerView.Adapter<SpotlightAdapter.Vide
             musicText = itemView.findViewById(R.id.spotlight_music);
             likesText = itemView.findViewById(R.id.spotlight_likes);
             likeIcon = itemView.findViewById(R.id.spotlight_like_icon);
+            
+            commentIcon = itemView.findViewById(R.id.spotlight_comment_btn);
+            commentCountText = itemView.findViewById(R.id.spotlight_comment_count);
+            shareIcon = itemView.findViewById(R.id.spotlight_share_btn);
+            saveIcon = itemView.findViewById(R.id.spotlight_save_btn);
+            followBtn = itemView.findViewById(R.id.spotlight_follow_btn);
+            musicIcon = itemView.findViewById(R.id.spotlight_music_icon);
         }
 
         void bind(MainActivity.SpotlightItem item, int position) {
@@ -83,29 +96,103 @@ public class SpotlightAdapter extends RecyclerView.Adapter<SpotlightAdapter.Vide
             player.prepare();
             player.setRepeatMode(ExoPlayer.REPEAT_MODE_ALL);
 
-            if (creatorText != null) creatorText.setText(item.creator);
+            if (creatorText != null) {
+                creatorText.setText(item.creator);
+                creatorText.setOnClickListener(v -> {
+                    if (context instanceof MainActivity) {
+                        ((MainActivity) context).showNotification(item.creator + " 👤", "Subscribers: 125k\nClick Follow to subscribe!", "👻");
+                    }
+                });
+            }
             if (captionText != null) captionText.setText(item.caption);
             if (musicText != null) musicText.setText(item.music);
             if (likesText != null) likesText.setText(item.likes);
 
-            // Liked State click handler local to the adapter page
+            // Vinyl Rotation Animation
+            if (musicIcon != null) {
+                android.view.animation.RotateAnimation rotate = new android.view.animation.RotateAnimation(
+                        0, 360,
+                        android.view.animation.Animation.RELATIVE_TO_SELF, 0.5f,
+                        android.view.animation.Animation.RELATIVE_TO_SELF, 0.5f
+                );
+                rotate.setDuration(4000);
+                rotate.setRepeatCount(android.view.animation.Animation.INFINITE);
+                rotate.setInterpolator(new android.view.animation.LinearInterpolator());
+                musicIcon.startAnimation(rotate);
+            }
+
+            // Follow button toggling
+            if (followBtn != null) {
+                final boolean[] isFollowing = {false};
+                followBtn.setOnClickListener(v -> {
+                    isFollowing[0] = !isFollowing[0];
+                    if (isFollowing[0]) {
+                        followBtn.setText("Following");
+                        followBtn.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#807A7A7A")));
+                        if (context instanceof MainActivity) {
+                            ((MainActivity) context).showToast("Subscribed to " + item.creator);
+                        }
+                    } else {
+                        followBtn.setText("Follow");
+                        followBtn.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#40FFFFFF")));
+                    }
+                });
+            }
+
+            // Like Star Actions
             if (likeIcon != null) {
                 android.content.SharedPreferences prefs = context.getSharedPreferences("snaptake_likes", Context.MODE_PRIVATE);
                 final boolean[] isLiked = {prefs.getBoolean("liked_" + position, false)};
                 
-                // Update UI state initially
                 likeIcon.setImageResource(isLiked[0] ? android.R.drawable.btn_star_big_on : android.R.drawable.btn_star_big_off);
                 likeIcon.setImageTintList(android.content.res.ColorStateList.valueOf(
-                        isLiked[0] ? android.graphics.Color.parseColor("#FFCC00") : android.graphics.Color.WHITE));
+                        isLiked[0] ? android.graphics.Color.parseColor("#FFFC00") : android.graphics.Color.WHITE));
                 
                 likeIcon.setOnClickListener(v -> {
                     isLiked[0] = !isLiked[0];
                     prefs.edit().putBoolean("liked_" + position, isLiked[0]).apply();
                     likeIcon.setImageResource(isLiked[0] ? android.R.drawable.btn_star_big_on : android.R.drawable.btn_star_big_off);
                     likeIcon.setImageTintList(android.content.res.ColorStateList.valueOf(
-                            isLiked[0] ? android.graphics.Color.parseColor("#FFCC00") : android.graphics.Color.WHITE));
+                            isLiked[0] ? android.graphics.Color.parseColor("#FFFC00") : android.graphics.Color.WHITE));
                     if (likesText != null) {
                         likesText.setText(isLiked[0] ? "2.5k" : item.likes);
+                    }
+                    
+                    // Heartbeat Overshoot Animation
+                    likeIcon.setScaleX(0.7f);
+                    likeIcon.setScaleY(0.7f);
+                    likeIcon.animate()
+                            .scaleX(1.0f)
+                            .scaleY(1.0f)
+                            .setDuration(250)
+                            .setInterpolator(new android.view.animation.OvershootInterpolator(1.4f))
+                            .start();
+                });
+            }
+
+            // Comment Drawer Action
+            if (commentIcon != null) {
+                commentIcon.setOnClickListener(v -> {
+                    if (context instanceof MainActivity) {
+                        ((MainActivity) context).openSpotlightComments(position, commentCountText);
+                    }
+                });
+            }
+
+            // Share Drawer Action
+            if (shareIcon != null) {
+                shareIcon.setOnClickListener(v -> {
+                    if (context instanceof MainActivity) {
+                        ((MainActivity) context).openSpotlightShare(position);
+                    }
+                });
+            }
+
+            // Save Download Action
+            if (saveIcon != null) {
+                saveIcon.setOnClickListener(v -> {
+                    if (context instanceof MainActivity) {
+                        ((MainActivity) context).saveSpotlightVideo(item.videoUrl);
                     }
                 });
             }

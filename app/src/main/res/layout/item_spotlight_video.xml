@@ -27,13 +27,37 @@
             android:layout_marginStart="16dp"
             android:layout_marginBottom="96dp">
             
-            <TextView
-                android:id="@+id/spotlight_creator"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="@color/white"
-                android:textSize="16sp"
-                android:textStyle="bold" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+                
+                <TextView
+                    android:id="@+id/spotlight_creator"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/white"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <!-- Follow Toggle Button -->
+                <TextView
+                    android:id="@+id/spotlight_follow_btn"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Follow"
+                    android:textColor="@color/white"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:layout_marginStart="10dp"
+                    android:background="@drawable/glass_rec_pill"
+                    android:backgroundTint="#40FFFFFF"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:paddingTop="3dp"
+                    android:paddingBottom="3dp" />
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/spotlight_caption"
@@ -41,15 +65,31 @@
                 android:layout_height="wrap_content"
                 android:textColor="@color/white"
                 android:textSize="12sp"
-                android:layout_marginTop="4dp" />
+                android:layout_marginTop="6dp" />
 
-            <TextView
-                android:id="@+id/spotlight_music"
+            <!-- Music Label Block -->
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="#E6FFFFFF"
-                android:textSize="11sp"
-                android:layout_marginTop="8dp" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="8dp">
+
+                <ImageView
+                    android:id="@+id/spotlight_music_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@android:drawable/ic_menu_compass"
+                    app:tint="@color/snap_yellow"
+                    android:layout_marginEnd="6dp" />
+
+                <TextView
+                    android:id="@+id/spotlight_music"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#E6FFFFFF"
+                    android:textSize="11sp" />
+            </LinearLayout>
         </LinearLayout>
 
         <!-- Interaction Buttons (Right side) -->
@@ -81,14 +121,16 @@
 
             <!-- Comment -->
             <ImageView
+                android:id="@+id/spotlight_comment_btn"
                 android:layout_width="32dp"
                 android:layout_height="32dp"
                 android:src="@drawable/ic_chat"
                 app:tint="@color/white" />
             <TextView
+                android:id="@+id/spotlight_comment_count"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="156"
+                android:text="42"
                 android:textColor="@color/white"
                 android:textSize="12sp"
                 android:layout_marginTop="2dp"
@@ -96,6 +138,7 @@
 
             <!-- Share -->
             <ImageView
+                android:id="@+id/spotlight_share_btn"
                 android:layout_width="32dp"
                 android:layout_height="32dp"
                 android:src="@drawable/ic_share"
@@ -104,6 +147,22 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Share"
+                android:textColor="@color/white"
+                android:textSize="10sp"
+                android:layout_marginTop="2dp"
+                android:layout_marginBottom="16dp" />
+
+            <!-- Save / Download -->
+            <ImageView
+                android:id="@+id/spotlight_save_btn"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@android:drawable/ic_menu_save"
+                app:tint="@color/white" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Save"
                 android:textColor="@color/white"
                 android:textSize="10sp"
                 android:layout_marginTop="2dp" />

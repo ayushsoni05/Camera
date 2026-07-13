@@ -526,8 +526,19 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                 spotlightItems.add(new SpotlightItem("@coding_ninja", "Procedural graphics render in real-time Android! 🚀 #dev #code", "🎵 Synth Wave Mix", "15.8k", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4"));
                 spotlightItems.add(new SpotlightItem("@travel_bug", "Sunset in Santorini is just magical... 🌅 #santorini #travel", "🎵 Chill Vibes Only", "8.9k", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4"));
             }
+            final List<SpotlightItem> backup = new ArrayList<>(spotlightItems);
             SpotlightAdapter adapter = new SpotlightAdapter(this, spotlightItems);
             spotlightViewPager.setAdapter(adapter);
+            spotlightViewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
+                @Override
+                public void onPageSelected(int position) {
+                    if (position >= spotlightItems.size() - 2) {
+                        int prevSize = spotlightItems.size();
+                        spotlightItems.addAll(backup);
+                        spotlightViewPager.getAdapter().notifyItemRangeInserted(prevSize, backup.size());
+                    }
+                }
+            });
         }
         
         if (navCreate != null) navCreate.setOnClickListener(v -> switchTab(1));
@@ -857,6 +868,136 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             if (replySend != null) replySend.setOnClickListener(null);
             
             playSegment(0);
+        });
+    }
+
+    private final java.util.Map<Integer, List<String>> spotlightCommentsMap = new java.util.HashMap<>();
+
+    public void openSpotlightComments(int position, TextView countText) {
+        View overlay = findViewById(R.id.spotlight_comments_overlay);
+        if (overlay == null) return;
+
+        overlay.setVisibility(View.VISIBLE);
+
+        View close = findViewById(R.id.spotlight_comments_close);
+        if (close != null) close.setOnClickListener(v -> overlay.setVisibility(View.GONE));
+
+        List<String> comments = spotlightCommentsMap.get(position);
+        if (comments == null) {
+            comments = new ArrayList<>();
+            comments.add("This is awesome! 🔥");
+            comments.add("Nice filter details. 😮");
+            comments.add("Where was this shot? 📍");
+            spotlightCommentsMap.put(position, comments);
+        }
+
+        final List<String> finalComments = comments;
+        Runnable refreshComments = () -> {
+            LinearLayout container = findViewById(R.id.spotlight_comments_container);
+            if (container != null) {
+                container.removeAllViews();
+                for (String comment : finalComments) {
+                    TextView tv = new TextView(this);
+                    tv.setText("👻 User: " + comment);
+                    tv.setTextColor(android.graphics.Color.WHITE);
+                    tv.setTextSize(13);
+                    tv.setPadding(0, 10, 0, 10);
+                    container.addView(tv);
+                }
+            }
+            if (countText != null) {
+                countText.setText(finalComments.size() + "");
+            }
+        };
+
+        refreshComments.run();
+
+        android.widget.ImageButton submit = findViewById(R.id.spotlight_comment_submit_btn);
+        android.widget.EditText input = findViewById(R.id.spotlight_comment_input_text);
+        if (submit != null && input != null) {
+            submit.setOnClickListener(v -> {
+                String txt = input.getText().toString();
+                if (!txt.trim().isEmpty()) {
+                    finalComments.add(txt);
+                    input.setText("");
+                    refreshComments.run();
+                }
+            });
+        }
+    }
+
+    public void openSpotlightShare(int position) {
+        View overlay = findViewById(R.id.spotlight_share_overlay);
+        if (overlay == null) return;
+
+        overlay.setVisibility(View.VISIBLE);
+
+        View close = findViewById(R.id.spotlight_share_close);
+        if (close != null) close.setOnClickListener(v -> overlay.setVisibility(View.GONE));
+
+        LinearLayout container = findViewById(R.id.spotlight_share_container);
+        if (container != null) {
+            container.removeAllViews();
+            for (String friend : profileFriendsList) {
+                TextView tv = new TextView(this);
+                tv.setText("👦 Send to " + friend);
+                tv.setTextColor(android.graphics.Color.WHITE);
+                tv.setTextSize(14);
+                tv.setPadding(0, 16, 0, 16);
+                tv.setBackground(ContextCompat.getDrawable(this, R.drawable.glass_rec_pill));
+                tv.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#2E2E3E")));
+                
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                lp.setMargins(0, 0, 0, 12);
+                tv.setLayoutParams(lp);
+                tv.setGravity(android.view.Gravity.CENTER_VERTICAL);
+                tv.setPadding(24, 16, 24, 16);
+
+                tv.setOnClickListener(v -> {
+                    if (chatRepo != null) {
+                        chatRepo.sendMessage("user", friend, "Shared a Spotlight Reel! 🎬\nCheck this out: " + spotlightItems.get(position).videoUrl, null, "text", null);
+                    }
+                    overlay.setVisibility(View.GONE);
+                    showToast("Sent to " + friend + "! 📤");
+                });
+                container.addView(tv);
+            }
+        }
+    }
+
+    public void saveSpotlightVideo(String videoUrl) {
+        showToast("Saving to Gallery...");
+        cameraExecutor.execute(() -> {
+            try {
+                java.net.URL url = new java.net.URL(videoUrl);
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+                conn.connect();
+
+                String name = "Spotlight_" + System.currentTimeMillis() + ".mp4";
+                ContentValues cv = new ContentValues();
+                cv.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
+                cv.put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4");
+                if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
+                    cv.put(MediaStore.Video.Media.RELATIVE_PATH, "Pictures/SnapTake");
+                }
+                Uri targetUri = getContentResolver().insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, cv);
+                if (targetUri != null) {
+                    try (java.io.InputStream in = conn.getInputStream();
+                         java.io.OutputStream out = getContentResolver().openOutputStream(targetUri)) {
+                        byte[] buffer = new byte[8192];
+                        int len;
+                        while ((len = in.read(buffer)) != -1) {
+                            out.write(buffer, 0, len);
+                        }
+                    }
+                    runOnUiThread(() -> {
+                        showNotification("Download Complete 🎬", "Spotlight Reel saved to Snaptake Memories!", "💾");
+                    });
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to download spotlight video", e);
+                runOnUiThread(() -> showToast("Download failed."));
+            }
         });
     }
 
