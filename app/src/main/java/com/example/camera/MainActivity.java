@@ -4789,6 +4789,39 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         }
     }
 
+    private Bitmap loadScaledBitmap(Uri uri, int maxDimension) {
+        try {
+            Bitmap bmp;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                bmp = android.graphics.ImageDecoder.decodeBitmap(
+                        android.graphics.ImageDecoder.createSource(getContentResolver(), uri),
+                        (decoder, info, source) -> decoder.setMutableRequired(true)
+                );
+            } else {
+                bmp = MediaStore.Images.Media.getBitmap(getContentResolver(), uri);
+            }
+            if (bmp == null) return null;
+            
+            int w = bmp.getWidth();
+            int h = bmp.getHeight();
+            int maxDim = Math.max(w, h);
+            if (maxDim > maxDimension) {
+                float scale = (float) maxDimension / maxDim;
+                int targetW = Math.round(w * scale);
+                int targetH = Math.round(h * scale);
+                Bitmap scaled = Bitmap.createScaledBitmap(bmp, targetW, targetH, true);
+                if (scaled != bmp) {
+                    bmp.recycle();
+                }
+                return scaled;
+            }
+            return bmp;
+        } catch (Exception e) {
+            Log.e(TAG, "Error loading scaled bitmap", e);
+            return null;
+        }
+    }
+
     private void assembleCollageAndOpenEditor() {
         if (multiSnapCapturedUris.size() < 2) return;
         
@@ -4798,18 +4831,13 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             try {
                 List<Bitmap> bitmaps = new ArrayList<>();
                 for (Uri uri : multiSnapCapturedUris) {
-                    Bitmap bmp;
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                        bmp = android.graphics.ImageDecoder.decodeBitmap(
-                                android.graphics.ImageDecoder.createSource(getContentResolver(), uri),
-                                (decoder, info, source) -> decoder.setMutableRequired(true)
-                        );
-                    } else {
-                        bmp = MediaStore.Images.Media.getBitmap(getContentResolver(), uri);
-                        bmp = bmp.copy(Bitmap.Config.ARGB_8888, true);
+                    Bitmap bmp = loadScaledBitmap(uri, 1080);
+                    if (bmp != null) {
+                        bitmaps.add(bmp);
                     }
-                    bitmaps.add(bmp);
                 }
+                
+                if (bitmaps.isEmpty()) return;
                 
                 int count = bitmaps.size();
                 int w = bitmaps.get(0).getWidth();
@@ -4828,6 +4856,10 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                     canvas.drawBitmap(bitmaps.get(1), w, 0, null);
                     canvas.drawBitmap(bitmaps.get(2 % count), 0, h, null);
                     canvas.drawBitmap(bitmaps.get(3 % count), w, h, null);
+                }
+                
+                for (Bitmap bmp : bitmaps) {
+                    bmp.recycle();
                 }
                 
                 Uri collageUri = saveBitmapToGallery(collage);
