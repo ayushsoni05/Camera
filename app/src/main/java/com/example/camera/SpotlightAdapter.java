@@ -132,8 +132,8 @@ public class SpotlightAdapter extends RecyclerView.Adapter<SpotlightAdapter.Vide
                     android.content.SharedPreferences prefs = context.getSharedPreferences("snaptake_likes", Context.MODE_PRIVATE);
                     prefs.edit().putBoolean("liked_" + position, true).apply();
                     if (likeIcon != null) {
-                        likeIcon.setImageResource(android.R.drawable.btn_star_big_on);
-                        likeIcon.setImageTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#FFFC00")));
+                        likeIcon.setImageResource(R.drawable.ic_heart);
+                        likeIcon.setImageTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#FF2D55")));
                         
                         likeIcon.setScaleX(0.7f);
                         likeIcon.setScaleY(0.7f);
@@ -237,16 +237,16 @@ public class SpotlightAdapter extends RecyclerView.Adapter<SpotlightAdapter.Vide
                 android.content.SharedPreferences prefs = context.getSharedPreferences("snaptake_likes", Context.MODE_PRIVATE);
                 final boolean[] isLiked = {prefs.getBoolean("liked_" + position, false)};
                 
-                likeIcon.setImageResource(isLiked[0] ? android.R.drawable.btn_star_big_on : android.R.drawable.btn_star_big_off);
+                likeIcon.setImageResource(R.drawable.ic_heart);
                 likeIcon.setImageTintList(android.content.res.ColorStateList.valueOf(
-                        isLiked[0] ? android.graphics.Color.parseColor("#FFFC00") : android.graphics.Color.WHITE));
+                        isLiked[0] ? android.graphics.Color.parseColor("#FF2D55") : android.graphics.Color.WHITE));
                 
                 likeIcon.setOnClickListener(v -> {
                     isLiked[0] = !isLiked[0];
                     prefs.edit().putBoolean("liked_" + position, isLiked[0]).apply();
-                    likeIcon.setImageResource(isLiked[0] ? android.R.drawable.btn_star_big_on : android.R.drawable.btn_star_big_off);
+                    likeIcon.setImageResource(R.drawable.ic_heart);
                     likeIcon.setImageTintList(android.content.res.ColorStateList.valueOf(
-                            isLiked[0] ? android.graphics.Color.parseColor("#FFFC00") : android.graphics.Color.WHITE));
+                            isLiked[0] ? android.graphics.Color.parseColor("#FF2D55") : android.graphics.Color.WHITE));
                     if (likesText != null) {
                         likesText.setText(isLiked[0] ? "2.5k" : item.likes);
                     }

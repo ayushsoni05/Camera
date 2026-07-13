@@ -18,7 +18,7 @@
         android:layout_width="100dp"
         android:layout_height="100dp"
         android:layout_gravity="center"
-        android:src="@android:drawable/btn_star_big_on"
+        android:src="@drawable/ic_heart"
         app:tint="@color/shutter_red"
         android:visibility="gone"
         android:alpha="0" />
@@ -130,7 +130,7 @@
                 android:id="@+id/spotlight_like_icon"
                 android:layout_width="32dp"
                 android:layout_height="32dp"
-                android:src="@android:drawable/btn_star_big_off"
+                android:src="@drawable/ic_heart"
                 app:tint="@color/white" />
             <TextView
                 android:id="@+id/spotlight_likes"

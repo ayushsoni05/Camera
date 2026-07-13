@@ -957,7 +957,7 @@
                         android:layout_width="32dp"
                         android:layout_height="32dp"
                         android:background="@color/transparent"
-                        android:src="@drawable/ic_camera"
+                        android:src="@drawable/ic_snap_camera"
                         app:tint="@color/white"
                         android:contentDescription="Instant Camera" />
 
@@ -1452,7 +1452,7 @@
                         android:id="@+id/nav_close_icon_preview"
                         android:layout_width="22dp"
                         android:layout_height="22dp"
-                        android:src="@drawable/ic_camera"
+                        android:src="@drawable/ic_snap_camera"
                         app:tint="#B3FFFFFF" />
                     <TextView
                         android:id="@+id/nav_close_label"
@@ -1532,7 +1532,7 @@
                         android:id="@+id/nav_explore_icon"
                         android:layout_width="22dp"
                         android:layout_height="22dp"
-                        android:src="@drawable/ic_spotlight"
+                        android:src="@drawable/ic_reels"
                         app:tint="#B3FFFFFF" />
                     <TextView
                         android:id="@+id/nav_explore_label"
