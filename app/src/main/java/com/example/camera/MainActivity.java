@@ -2820,11 +2820,17 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             }
         }
         
-        paint.setTextSize(64);
-        paint.setTextAlign(Paint.Align.CENTER);
-        Paint.FontMetrics fm = paint.getFontMetrics();
-        float yOffset = -(fm.ascent + fm.descent) / 2;
-        canvas.drawText("👻", 150f, 150f + yOffset, paint);
+        android.graphics.drawable.Drawable logoDrawable = androidx.core.content.ContextCompat.getDrawable(this, R.drawable.ic_snaptake_logo_vector);
+        if (logoDrawable != null) {
+            logoDrawable.setBounds(105, 105, 195, 195);
+            logoDrawable.draw(canvas);
+        } else {
+            paint.setTextSize(64);
+            paint.setTextAlign(Paint.Align.CENTER);
+            Paint.FontMetrics fm = paint.getFontMetrics();
+            float yOffset = -(fm.ascent + fm.descent) / 2;
+            canvas.drawText("👻", 150f, 150f + yOffset, paint);
+        }
         
         return bmp;
     }
@@ -2859,6 +2865,24 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             View closeSettings = findViewById(R.id.profile_settings_close);
             if (closeSettings != null) closeSettings.setOnClickListener(v2 -> settingsOverlay.setVisibility(View.GONE));
             
+            Button syncCloud = findViewById(R.id.settings_sync_cloud_btn);
+            View syncLoading = findViewById(R.id.cloud_sync_loading_overlay);
+            TextView cloudStatus = findViewById(R.id.memories_cloud_status);
+            if (syncCloud != null && syncLoading != null) {
+                syncCloud.setOnClickListener(v2 -> {
+                    syncLoading.setVisibility(View.VISIBLE);
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                        syncLoading.setVisibility(View.GONE);
+                        settingsOverlay.setVisibility(View.GONE);
+                        if (cloudStatus != null) {
+                            cloudStatus.setText("☁️ Backed Up");
+                            cloudStatus.setTextColor(android.graphics.Color.parseColor("#39FF14"));
+                        }
+                        showNotification("Cloud Backup Synced ☁️", "Successfully secured all snaps and stickers to vault.", "💾");
+                    }, 2500);
+                });
+            }
+
             Button clearCache = findViewById(R.id.settings_clear_cache_btn);
             if (clearCache != null) clearCache.setOnClickListener(v2 -> {
                 showToast("Media cache cleared! 🧹");

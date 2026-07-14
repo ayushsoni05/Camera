@@ -58,8 +58,31 @@ public class SnapAlertHelper {
 
         titleTv.setText(title);
         bodyTv.setText(body);
-        if (emojiTv != null && emoji != null) {
-            emojiTv.setText(emoji);
+        
+        android.widget.ImageView iconIv = activity.findViewById(R.id.snap_notification_icon);
+        if (emojiTv != null) {
+            if (iconIv != null && emoji != null) {
+                if ("👻".equals(emoji)) {
+                    iconIv.setImageResource(R.drawable.ic_snaptake_logo_vector);
+                    iconIv.setVisibility(View.VISIBLE);
+                    emojiTv.setVisibility(View.GONE);
+                } else if ("💾".equals(emoji)) {
+                    iconIv.setImageResource(android.R.drawable.ic_menu_save);
+                    iconIv.setVisibility(View.VISIBLE);
+                    emojiTv.setVisibility(View.GONE);
+                } else if ("💬".equals(emoji)) {
+                    iconIv.setImageResource(R.drawable.ic_chat);
+                    iconIv.setVisibility(View.VISIBLE);
+                    emojiTv.setVisibility(View.GONE);
+                } else {
+                    emojiTv.setText(emoji);
+                    emojiTv.setVisibility(View.VISIBLE);
+                    iconIv.setVisibility(View.GONE);
+                }
+            } else if (emoji != null) {
+                emojiTv.setText(emoji);
+                emojiTv.setVisibility(View.VISIBLE);
+            }
         }
 
         mainHandler.removeCallbacks(notificationRunnable);
