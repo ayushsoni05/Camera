@@ -3565,6 +3565,290 @@
                 android:layout_marginTop="8dp" />
         </LinearLayout>
     </FrameLayout>
+    <!-- ==================== SNAPCHAT STYLE MUSIC SELECTOR BOTTOM SHEET ==================== -->
+    <FrameLayout
+        android:id="@+id/music_selector_bottom_sheet_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#60000000"
+        android:elevation="190dp"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <View
+            android:id="@+id/music_sheet_bg_dismiss"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <androidx.cardview.widget.CardView
+            android:id="@+id/music_sheet_card"
+            android:layout_width="match_parent"
+            android:layout_height="420dp"
+            android:layout_gravity="bottom"
+            app:cardCornerRadius="24dp"
+            app:cardBackgroundColor="#1E1E24"
+            app:cardElevation="24dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <View
+                    android:layout_width="40dp"
+                    android:layout_height="4dp"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginBottom="16dp"
+                    android:background="#40FFFFFF" />
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Sounds 🎵"
+                        android:textColor="@color/white"
+                        android:textSize="20sp"
+                        android:textStyle="bold"
+                        android:layout_alignParentStart="true"
+                        android:layout_centerVertical="true" />
+
+                    <TextView
+                        android:id="@+id/music_sheet_clear_btn"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Clear Sound"
+                        android:textColor="#FFFC00"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:padding="8dp"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        android:clickable="true"
+                        android:focusable="true" />
+                </RelativeLayout>
+
+                <ScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <!-- Item 1: Snap Beats -->
+                        <RelativeLayout
+                            android:id="@+id/music_item_0"
+                            android:layout_width="match_parent"
+                            android:layout_height="72dp"
+                            android:layout_marginBottom="8dp"
+                            android:background="#2E2E3A"
+                            android:padding="12dp"
+                            android:clickable="true"
+                            android:focusable="true">
+                            <ImageView
+                                android:id="@+id/music_icon_0"
+                                android:layout_width="48dp"
+                                android:layout_height="48dp"
+                                android:src="@drawable/ic_reels"
+                                android:padding="8dp"
+                                android:background="#33FFFFFF"
+                                android:layout_alignParentStart="true"
+                                android:layout_centerVertical="true" />
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:layout_toEndOf="@id/music_icon_0"
+                                android:layout_marginStart="12dp"
+                                android:layout_centerVertical="true">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Snap Beats"
+                                    android:textColor="@color/white"
+                                    android:textSize="16sp"
+                                    android:textStyle="bold" />
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Official SnapTake Soundtrack"
+                                    android:textColor="#99FFFFFF"
+                                    android:textSize="12sp" />
+                            </LinearLayout>
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="2:15"
+                                android:textColor="#66FFFFFF"
+                                android:textSize="12sp"
+                                android:layout_alignParentEnd="true"
+                                android:layout_centerVertical="true" />
+                        </RelativeLayout>
+
+                        <!-- Item 2: Summer Chill -->
+                        <RelativeLayout
+                            android:id="@+id/music_item_1"
+                            android:layout_width="match_parent"
+                            android:layout_height="72dp"
+                            android:layout_marginBottom="8dp"
+                            android:background="#2E2E3A"
+                            android:padding="12dp"
+                            android:clickable="true"
+                            android:focusable="true">
+                            <ImageView
+                                android:id="@+id/music_icon_1"
+                                android:layout_width="48dp"
+                                android:layout_height="48dp"
+                                android:src="@drawable/ic_reels"
+                                android:padding="8dp"
+                                android:background="#33FFFFFF"
+                                android:layout_alignParentStart="true"
+                                android:layout_centerVertical="true" />
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:layout_toEndOf="@id/music_icon_1"
+                                android:layout_marginStart="12dp"
+                                android:layout_centerVertical="true">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Summer Chill"
+                                    android:textColor="@color/white"
+                                    android:textSize="16sp"
+                                    android:textStyle="bold" />
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Relaxing tropical beats"
+                                    android:textColor="#99FFFFFF"
+                                    android:textSize="12sp" />
+                            </LinearLayout>
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="3:04"
+                                android:textColor="#66FFFFFF"
+                                android:textSize="12sp"
+                                android:layout_alignParentEnd="true"
+                                android:layout_centerVertical="true" />
+                        </RelativeLayout>
+
+                        <!-- Item 3: Dance Vibes -->
+                        <RelativeLayout
+                            android:id="@+id/music_item_2"
+                            android:layout_width="match_parent"
+                            android:layout_height="72dp"
+                            android:layout_marginBottom="8dp"
+                            android:background="#2E2E3A"
+                            android:padding="12dp"
+                            android:clickable="true"
+                            android:focusable="true">
+                            <ImageView
+                                android:id="@+id/music_icon_2"
+                                android:layout_width="48dp"
+                                android:layout_height="48dp"
+                                android:src="@drawable/ic_reels"
+                                android:padding="8dp"
+                                android:background="#33FFFFFF"
+                                android:layout_alignParentStart="true"
+                                android:layout_centerVertical="true" />
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:layout_toEndOf="@id/music_icon_2"
+                                android:layout_marginStart="12dp"
+                                android:layout_centerVertical="true">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Dance Vibes"
+                                    android:textColor="@color/white"
+                                    android:textSize="16sp"
+                                    android:textStyle="bold" />
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="High energy electro"
+                                    android:textColor="#99FFFFFF"
+                                    android:textSize="12sp" />
+                            </LinearLayout>
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="2:48"
+                                android:textColor="#66FFFFFF"
+                                android:textSize="12sp"
+                                android:layout_alignParentEnd="true"
+                                android:layout_centerVertical="true" />
+                        </RelativeLayout>
+
+                        <!-- Item 4: Lo-Fi Study -->
+                        <RelativeLayout
+                            android:id="@+id/music_item_3"
+                            android:layout_width="match_parent"
+                            android:layout_height="72dp"
+                            android:layout_marginBottom="8dp"
+                            android:background="#2E2E3A"
+                            android:padding="12dp"
+                            android:clickable="true"
+                            android:focusable="true">
+                            <ImageView
+                                android:id="@+id/music_icon_3"
+                                android:layout_width="48dp"
+                                android:layout_height="48dp"
+                                android:src="@drawable/ic_reels"
+                                android:padding="8dp"
+                                android:background="#33FFFFFF"
+                                android:layout_alignParentStart="true"
+                                android:layout_centerVertical="true" />
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:layout_toEndOf="@id/music_icon_3"
+                                android:layout_marginStart="12dp"
+                                android:layout_centerVertical="true">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Lo-Fi Study"
+                                    android:textColor="@color/white"
+                                    android:textSize="16sp"
+                                    android:textStyle="bold" />
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Focus and study chill beats"
+                                    android:textColor="#99FFFFFF"
+                                    android:textSize="12sp" />
+                            </LinearLayout>
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="1:58"
+                                android:textColor="#66FFFFFF"
+                                android:textSize="12sp"
+                                android:layout_alignParentEnd="true"
+                                android:layout_centerVertical="true" />
+                        </RelativeLayout>
+
+                    </LinearLayout>
+                </ScrollView>
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+    </FrameLayout>
+
     <!-- ==================== CLOUD SYNC VAULT LOADING OVERLAY ==================== -->
     <FrameLayout
         android:id="@+id/cloud_sync_loading_overlay"

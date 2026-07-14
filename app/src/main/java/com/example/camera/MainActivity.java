@@ -3540,11 +3540,56 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"
         };
         
-        new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("Add Background Music")
-                .setItems(tracks, (dialog, which) -> {
-                    selectedMusicTrack = tracks[which];
-                    Toast.makeText(this, "Music Selected: " + selectedMusicTrack + " 🎵", Toast.LENGTH_SHORT).show();
+        View overlay = findViewById(R.id.music_selector_bottom_sheet_overlay);
+        View card = findViewById(R.id.music_sheet_card);
+        if (overlay != null && card != null) {
+            overlay.setVisibility(View.VISIBLE);
+            overlay.setAlpha(0f);
+            overlay.animate().alpha(1f).setDuration(300).start();
+            
+            card.setTranslationY(1000f);
+            card.animate()
+                .translationY(0f)
+                .setDuration(450)
+                .setInterpolator(new android.view.animation.OvershootInterpolator(1.1f))
+                .start();
+        }
+
+        View dismissBg = findViewById(R.id.music_sheet_bg_dismiss);
+        if (dismissBg != null) {
+            dismissBg.setOnClickListener(v -> dismissMusicSelector());
+        }
+
+        View clearBtn = findViewById(R.id.music_sheet_clear_btn);
+        if (clearBtn != null) {
+            clearBtn.setOnClickListener(v -> {
+                selectedMusicTrack = null;
+                ImageButton btnMusic = findViewById(R.id.btnMusic);
+                if (btnMusic != null) btnMusic.setBackgroundTintList(null);
+                if (storyMusicPlayer != null) {
+                    storyMusicPlayer.stop();
+                    storyMusicPlayer.release();
+                    storyMusicPlayer = null;
+                }
+                showToast("Music cleared");
+                dismissMusicSelector();
+            });
+        }
+
+        for (int i = 0; i < 4; i++) {
+            final int index = i;
+            int itemId = getResources().getIdentifier("music_item_" + i, "id", getPackageName());
+            View item = findViewById(itemId);
+            if (item != null) {
+                // highlight state if currently selected
+                if (tracks[index].equals(selectedMusicTrack)) {
+                    item.setBackgroundColor(android.graphics.Color.parseColor("#44FFFC00"));
+                } else {
+                    item.setBackgroundColor(android.graphics.Color.parseColor("#2E2E3A"));
+                }
+                item.setOnClickListener(v -> {
+                    selectedMusicTrack = tracks[index];
+                    showToast("Music Selected: " + selectedMusicTrack + " 🎵");
                     
                     ImageButton btnMusic = findViewById(R.id.btnMusic);
                     if (btnMusic != null) {
@@ -3557,26 +3602,32 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                     }
                     storyMusicPlayer = new android.media.MediaPlayer();
                     try {
-                        storyMusicPlayer.setDataSource(urls[which]);
+                        storyMusicPlayer.setDataSource(urls[index]);
                         storyMusicPlayer.setLooping(true);
                         storyMusicPlayer.prepareAsync();
                         storyMusicPlayer.setOnPreparedListener(android.media.MediaPlayer::start);
                     } catch (Exception e) {
                         Log.e(TAG, "Error playing music", e);
                     }
+                    dismissMusicSelector();
+                });
+            }
+        }
+    }
+
+    private void dismissMusicSelector() {
+        View overlay = findViewById(R.id.music_selector_bottom_sheet_overlay);
+        View card = findViewById(R.id.music_sheet_card);
+        if (overlay != null && card != null) {
+            card.animate()
+                .translationY(1000f)
+                .setDuration(350)
+                .withEndAction(() -> {
+                    overlay.setVisibility(View.GONE);
                 })
-                .setNegativeButton("Clear Music", (dialog, which) -> {
-                    selectedMusicTrack = null;
-                    ImageButton btnMusic = findViewById(R.id.btnMusic);
-                    if (btnMusic != null) btnMusic.setBackgroundTintList(null);
-                    if (storyMusicPlayer != null) {
-                        storyMusicPlayer.stop();
-                        storyMusicPlayer.release();
-                        storyMusicPlayer = null;
-                    }
-                    Toast.makeText(this, "Music cleared", Toast.LENGTH_SHORT).show();
-                })
-                .show();
+                .start();
+            overlay.animate().alpha(0f).setDuration(300).start();
+        }
     }
 
     private void enterScissorsCropMode() {
