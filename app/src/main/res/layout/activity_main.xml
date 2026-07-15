@@ -25,6 +25,31 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />
 
+        <!-- Container for Snapchat Camera Layout -->
+        <FrameLayout
+            android:id="@+id/camera_layout_container"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- Exit Snapchat Mode Button -->
+        <ImageButton
+            android:id="@+id/btn_exit_snapchat_mode"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginTop="80dp"
+            android:layout_marginStart="16dp"
+            android:background="@drawable/lens_item_bg_inactive"
+            android:src="@drawable/ic_nav_close"
+            android:contentDescription="Exit Snapchat Mode"
+            android:visibility="gone"
+            android:elevation="20dp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
+
         <!-- Face Overlay Canvas (for AR lenses drawing) -->
         <com.example.camera.FaceOverlayView
             android:id="@+id/face_overlay"
@@ -983,7 +1008,7 @@
                         android:layout_width="32dp"
                         android:layout_height="32dp"
                         android:background="@color/transparent"
-                        android:src="@android:drawable/ic_btn_speak_now"
+                        android:src="@drawable/ic_chat_mic"
                         app:tint="@color/white"
                         android:contentDescription="Voice note" />
 
@@ -993,7 +1018,7 @@
                         android:layout_width="32dp"
                         android:layout_height="32dp"
                         android:background="@color/transparent"
-                        android:src="@android:drawable/btn_star_big_off"
+                        android:src="@drawable/ic_chat_star"
                         app:tint="@color/white"
                         android:contentDescription="Stickers" />
 
@@ -3638,211 +3663,631 @@
                     android:layout_height="match_parent">
 
                     <LinearLayout
+                        android:id="@+id/music_list_container"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="vertical">
+                        android:orientation="vertical" />
+                </ScrollView>
 
-                        <!-- Item 1: Snap Beats -->
-                        <RelativeLayout
-                            android:id="@+id/music_item_0"
-                            android:layout_width="match_parent"
-                            android:layout_height="72dp"
-                            android:layout_marginBottom="8dp"
-                            android:background="#2E2E3A"
-                            android:padding="12dp"
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+    </FrameLayout>
+
+    <!-- ==================== SNAPCHAT STYLE CHAT OPTIONS BOTTOM SHEET ==================== -->
+    <FrameLayout
+        android:id="@+id/chat_options_bottom_sheet_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#60000000"
+        android:elevation="190dp"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <View
+            android:id="@+id/chat_options_bg_dismiss"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <androidx.cardview.widget.CardView
+            android:id="@+id/chat_options_sheet_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            app:cardCornerRadius="24dp"
+            app:cardBackgroundColor="#1E1E24"
+            app:cardElevation="24dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <View
+                    android:layout_width="40dp"
+                    android:layout_height="4dp"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginBottom="16dp"
+                    android:background="#40FFFFFF" />
+
+                <!-- Emoji Reactions Row -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Reactions"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="12sp"
+                    android:layout_marginBottom="8dp" />
+
+                <HorizontalScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="20dp"
+                    android:scrollbars="none">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <!-- Emojis as buttons -->
+                        <TextView
+                            android:id="@+id/react_thumb"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:text="👍"
+                            android:textSize="28sp"
+                            android:gravity="center"
                             android:clickable="true"
-                            android:focusable="true">
-                            <ImageView
-                                android:id="@+id/music_icon_0"
-                                android:layout_width="48dp"
-                                android:layout_height="48dp"
-                                android:src="@drawable/ic_reels"
-                                android:padding="8dp"
-                                android:background="#33FFFFFF"
-                                android:layout_alignParentStart="true"
-                                android:layout_centerVertical="true" />
-                            <LinearLayout
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:orientation="vertical"
-                                android:layout_toEndOf="@id/music_icon_0"
-                                android:layout_marginStart="12dp"
-                                android:layout_centerVertical="true">
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Snap Beats"
-                                    android:textColor="@color/white"
-                                    android:textSize="16sp"
-                                    android:textStyle="bold" />
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Official SnapTake Soundtrack"
-                                    android:textColor="#99FFFFFF"
-                                    android:textSize="12sp" />
-                            </LinearLayout>
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="2:15"
-                                android:textColor="#66FFFFFF"
-                                android:textSize="12sp"
-                                android:layout_alignParentEnd="true"
-                                android:layout_centerVertical="true" />
-                        </RelativeLayout>
-
-                        <!-- Item 2: Summer Chill -->
-                        <RelativeLayout
-                            android:id="@+id/music_item_1"
-                            android:layout_width="match_parent"
-                            android:layout_height="72dp"
-                            android:layout_marginBottom="8dp"
-                            android:background="#2E2E3A"
-                            android:padding="12dp"
+                            android:focusable="true"
+                            android:layout_marginEnd="12dp"
+                            android:background="#2E2E3A" />
+                        <TextView
+                            android:id="@+id/react_heart"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:text="❤️"
+                            android:textSize="28sp"
+                            android:gravity="center"
                             android:clickable="true"
-                            android:focusable="true">
-                            <ImageView
-                                android:id="@+id/music_icon_1"
-                                android:layout_width="48dp"
-                                android:layout_height="48dp"
-                                android:src="@drawable/ic_reels"
-                                android:padding="8dp"
-                                android:background="#33FFFFFF"
-                                android:layout_alignParentStart="true"
-                                android:layout_centerVertical="true" />
-                            <LinearLayout
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:orientation="vertical"
-                                android:layout_toEndOf="@id/music_icon_1"
-                                android:layout_marginStart="12dp"
-                                android:layout_centerVertical="true">
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Summer Chill"
-                                    android:textColor="@color/white"
-                                    android:textSize="16sp"
-                                    android:textStyle="bold" />
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Relaxing tropical beats"
-                                    android:textColor="#99FFFFFF"
-                                    android:textSize="12sp" />
-                            </LinearLayout>
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="3:04"
-                                android:textColor="#66FFFFFF"
-                                android:textSize="12sp"
-                                android:layout_alignParentEnd="true"
-                                android:layout_centerVertical="true" />
-                        </RelativeLayout>
-
-                        <!-- Item 3: Dance Vibes -->
-                        <RelativeLayout
-                            android:id="@+id/music_item_2"
-                            android:layout_width="match_parent"
-                            android:layout_height="72dp"
-                            android:layout_marginBottom="8dp"
-                            android:background="#2E2E3A"
-                            android:padding="12dp"
+                            android:focusable="true"
+                            android:layout_marginEnd="12dp"
+                            android:background="#2E2E3A" />
+                        <TextView
+                            android:id="@+id/react_laugh"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:text="😂"
+                            android:textSize="28sp"
+                            android:gravity="center"
                             android:clickable="true"
-                            android:focusable="true">
-                            <ImageView
-                                android:id="@+id/music_icon_2"
-                                android:layout_width="48dp"
-                                android:layout_height="48dp"
-                                android:src="@drawable/ic_reels"
-                                android:padding="8dp"
-                                android:background="#33FFFFFF"
-                                android:layout_alignParentStart="true"
-                                android:layout_centerVertical="true" />
-                            <LinearLayout
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:orientation="vertical"
-                                android:layout_toEndOf="@id/music_icon_2"
-                                android:layout_marginStart="12dp"
-                                android:layout_centerVertical="true">
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Dance Vibes"
-                                    android:textColor="@color/white"
-                                    android:textSize="16sp"
-                                    android:textStyle="bold" />
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="High energy electro"
-                                    android:textColor="#99FFFFFF"
-                                    android:textSize="12sp" />
-                            </LinearLayout>
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="2:48"
-                                android:textColor="#66FFFFFF"
-                                android:textSize="12sp"
-                                android:layout_alignParentEnd="true"
-                                android:layout_centerVertical="true" />
-                        </RelativeLayout>
-
-                        <!-- Item 4: Lo-Fi Study -->
-                        <RelativeLayout
-                            android:id="@+id/music_item_3"
-                            android:layout_width="match_parent"
-                            android:layout_height="72dp"
-                            android:layout_marginBottom="8dp"
-                            android:background="#2E2E3A"
-                            android:padding="12dp"
+                            android:focusable="true"
+                            android:layout_marginEnd="12dp"
+                            android:background="#2E2E3A" />
+                        <TextView
+                            android:id="@+id/react_gasp"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:text="😮"
+                            android:textSize="28sp"
+                            android:gravity="center"
                             android:clickable="true"
-                            android:focusable="true">
-                            <ImageView
-                                android:id="@+id/music_icon_3"
-                                android:layout_width="48dp"
-                                android:layout_height="48dp"
-                                android:src="@drawable/ic_reels"
-                                android:padding="8dp"
-                                android:background="#33FFFFFF"
-                                android:layout_alignParentStart="true"
-                                android:layout_centerVertical="true" />
-                            <LinearLayout
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:orientation="vertical"
-                                android:layout_toEndOf="@id/music_icon_3"
-                                android:layout_marginStart="12dp"
-                                android:layout_centerVertical="true">
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Lo-Fi Study"
-                                    android:textColor="@color/white"
-                                    android:textSize="16sp"
-                                    android:textStyle="bold" />
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Focus and study chill beats"
-                                    android:textColor="#99FFFFFF"
-                                    android:textSize="12sp" />
-                            </LinearLayout>
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="1:58"
-                                android:textColor="#66FFFFFF"
-                                android:textSize="12sp"
-                                android:layout_alignParentEnd="true"
-                                android:layout_centerVertical="true" />
-                        </RelativeLayout>
-
+                            android:focusable="true"
+                            android:layout_marginEnd="12dp"
+                            android:background="#2E2E3A" />
+                        <TextView
+                            android:id="@+id/react_cry"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:text="😢"
+                            android:textSize="28sp"
+                            android:gravity="center"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:layout_marginEnd="12dp"
+                            android:background="#2E2E3A" />
+                        <TextView
+                            android:id="@+id/react_pray"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:text="🙏"
+                            android:textSize="28sp"
+                            android:gravity="center"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:background="#2E2E3A" />
                     </LinearLayout>
+                </HorizontalScrollView>
+
+                <!-- Actions List -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Actions"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="12sp"
+                    android:layout_marginBottom="8dp" />
+
+                <!-- Action: Reply -->
+                <LinearLayout
+                    android:id="@+id/chat_action_reply"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="#2E2E3A"
+                    android:paddingHorizontal="16dp"
+                    android:layout_marginBottom="8dp"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Reply to Message 💬"
+                        android:textColor="@color/white"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Action: Pin -->
+                <LinearLayout
+                    android:id="@+id/chat_action_pin"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="#2E2E3A"
+                    android:paddingHorizontal="16dp"
+                    android:layout_marginBottom="8dp"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Pin Message 📌"
+                        android:textColor="@color/white"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Action: Forward -->
+                <LinearLayout
+                    android:id="@+id/chat_action_forward"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="#2E2E3A"
+                    android:paddingHorizontal="16dp"
+                    android:layout_marginBottom="8dp"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Forward Message 🚀"
+                        android:textColor="@color/white"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Action: Delete -->
+                <LinearLayout
+                    android:id="@+id/chat_action_delete"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="#2E2E3A"
+                    android:paddingHorizontal="16dp"
+                    android:layout_marginBottom="12dp"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Delete Message 🗑️"
+                        android:textColor="#FF4D4D"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+    </FrameLayout>
+
+    <!-- ==================== SNAPCHAT STYLE ATTACHMENT BOTTOM SHEET ==================== -->
+    <FrameLayout
+        android:id="@+id/attachment_bottom_sheet_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#60000000"
+        android:elevation="190dp"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <View
+            android:id="@+id/attachment_bg_dismiss"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <androidx.cardview.widget.CardView
+            android:id="@+id/attachment_sheet_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            app:cardCornerRadius="24dp"
+            app:cardBackgroundColor="#1E1E24"
+            app:cardElevation="24dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <View
+                    android:layout_width="40dp"
+                    android:layout_height="4dp"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginBottom="16dp"
+                    android:background="#40FFFFFF" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Send Attachment"
+                    android:textColor="@color/white"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="16dp" />
+
+                <!-- Option: Mock Photo -->
+                <LinearLayout
+                    android:id="@+id/attach_option_mock_photo"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="#2E2E3A"
+                    android:paddingHorizontal="16dp"
+                    android:layout_marginBottom="8dp"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Camera Photo Attachment 📸"
+                        android:textColor="@color/white"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Option: Mock Video -->
+                <LinearLayout
+                    android:id="@+id/attach_option_mock_video"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="#2E2E3A"
+                    android:paddingHorizontal="16dp"
+                    android:layout_marginBottom="8dp"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Camera Video Attachment 🎥"
+                        android:textColor="@color/white"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Option: Gallery Image -->
+                <LinearLayout
+                    android:id="@+id/attach_option_gallery_photo"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="#2E2E3A"
+                    android:paddingHorizontal="16dp"
+                    android:layout_marginBottom="8dp"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Choose Image from Gallery 🖼️"
+                        android:textColor="@color/white"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Option: Gallery Video -->
+                <LinearLayout
+                    android:id="@+id/attach_option_gallery_video"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="#2E2E3A"
+                    android:paddingHorizontal="16dp"
+                    android:layout_marginBottom="12dp"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Choose Video from Gallery 🎬"
+                        android:textColor="@color/white"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+    </FrameLayout>
+
+    <!-- ==================== SNAPCHAT STYLE CREATE GROUP BOTTOM SHEET ==================== -->
+    <FrameLayout
+        android:id="@+id/create_group_bottom_sheet_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#60000000"
+        android:elevation="190dp"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <View
+            android:id="@+id/create_group_bg_dismiss"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <androidx.cardview.widget.CardView
+            android:id="@+id/create_group_sheet_card"
+            android:layout_width="match_parent"
+            android:layout_height="400dp"
+            android:layout_gravity="bottom"
+            app:cardCornerRadius="24dp"
+            app:cardBackgroundColor="#1E1E24"
+            app:cardElevation="24dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <View
+                    android:layout_width="40dp"
+                    android:layout_height="4dp"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginBottom="16dp"
+                    android:background="#40FFFFFF" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="New Group Chat 👥"
+                    android:textColor="@color/white"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="16dp" />
+
+                <ScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginBottom="16dp">
+
+                    <LinearLayout
+                        android:id="@+id/group_friends_container"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+                </ScrollView>
+
+                <Button
+                    android:id="@+id/group_sheet_create_btn"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:backgroundTint="@color/snap_yellow"
+                    android:textColor="@color/black"
+                    android:text="Create Group"
+                    android:textStyle="bold"
+                    android:textAllCaps="false" />
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+    </FrameLayout>
+
+    <!-- ==================== SNAPCHAT STYLE EDIT TEXT BOTTOM SHEET ==================== -->
+    <FrameLayout
+        android:id="@+id/snap_text_bottom_sheet_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#60000000"
+        android:elevation="190dp"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <View
+            android:id="@+id/snap_text_bg_dismiss"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <androidx.cardview.widget.CardView
+            android:id="@+id/snap_text_sheet_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            app:cardCornerRadius="24dp"
+            app:cardBackgroundColor="#1E1E24"
+            app:cardElevation="24dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <View
+                    android:layout_width="40dp"
+                    android:layout_height="4dp"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginBottom="16dp"
+                    android:background="#40FFFFFF" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Add Snap Text ✍️"
+                    android:textColor="@color/white"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="16dp" />
+
+                <EditText
+                    android:id="@+id/snap_text_input_field"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:background="#2E2E3A"
+                    android:hint="Add some text..."
+                    android:textColorHint="#66FFFFFF"
+                    android:textColor="@color/white"
+                    android:paddingHorizontal="16dp"
+                    android:textSize="15sp"
+                    android:layout_marginBottom="20dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="end">
+
+                    <Button
+                        android:id="@+id/snap_text_btn_cancel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Cancel"
+                        android:textColor="@color/white"
+                        android:backgroundTint="#2E2E3A"
+                        android:layout_marginEnd="8dp"
+                        android:textAllCaps="false" />
+
+                    <Button
+                        android:id="@+id/snap_text_btn_done"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Done"
+                        android:textColor="@color/black"
+                        android:backgroundTint="@color/snap_yellow"
+                        android:textAllCaps="false" />
+                </LinearLayout>
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+    </FrameLayout>
+
+    <!-- ==================== SNAPCHAT STYLE STICKERS BOTTOM SHEET ==================== -->
+    <FrameLayout
+        android:id="@+id/stickers_bottom_sheet_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#60000000"
+        android:elevation="190dp"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <View
+            android:id="@+id/stickers_bg_dismiss"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <androidx.cardview.widget.CardView
+            android:id="@+id/stickers_sheet_card"
+            android:layout_width="match_parent"
+            android:layout_height="400dp"
+            android:layout_gravity="bottom"
+            app:cardCornerRadius="24dp"
+            app:cardBackgroundColor="#1E1E24"
+            app:cardElevation="24dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <View
+                    android:layout_width="40dp"
+                    android:layout_height="4dp"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginBottom="16dp"
+                    android:background="#40FFFFFF" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Stickers &amp; GIFs 👻"
+                    android:textColor="@color/white"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="16dp" />
+
+                <!-- Tabs/Headers -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="12dp">
+                    
+                    <TextView
+                        android:id="@+id/stickers_tab_btn"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Stickers"
+                        android:textColor="#FFFC00"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp"
+                        android:clickable="true"
+                        android:focusable="true" />
+
+                    <TextView
+                        android:id="@+id/gifs_tab_btn"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="GIFs"
+                        android:textColor="#80FFFFFF"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp"
+                        android:clickable="true"
+                        android:focusable="true" />
+                </LinearLayout>
+
+                <!-- Scrollable Grid Container -->
+                <ScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                    <GridLayout
+                        android:id="@+id/stickers_grid_container"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:columnCount="3"
+                        android:alignmentMode="alignMargins"
+                        android:columnOrderPreserved="false" />
                 </ScrollView>
 
             </LinearLayout>

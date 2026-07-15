@@ -20,6 +20,15 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Camera"
         tools:targetApi="31">
+
+        <!-- Snapchat Camera Kit Production Credentials -->
+        <meta-data
+            android:name="com.snap.camerakit.app.id"
+            android:value="4b18b947-fa1f-4d01-9d9d-884dd9c01b10" />
+        <meta-data
+            android:name="com.snap.camerakit.api.token"
+            android:value="eyJhbGciOiJIUzI1NiIsImtpZCI6IkNhbnZhc1MyU0hNQUNQcm9kIiwidHlwIjoiSldUIn0.eyJhdWQiOiJjYW52YXMtY2FudmFzYXBpIiwiaXNzIjoiY2FudmFzLXMyc3Rva2VuIiwibmJmIjoxNzg0MDI2ODg3LCJzdWIiOiI0YjE4Yjk0Ny1mYTFmLTRkMDEtOWQ5ZC04ODRkZDljMDFiMTB-UFJPRFVDVElPTn5kNzQ5OGNlMC0zOWE3LTRmMjMtYTQ5Ny03ZjQyM2MyMmVjNDcifQ.wWwCy4K16Fmd9XlqHAFRsbgDNNpGLJ64a9T30IhghY4" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true">

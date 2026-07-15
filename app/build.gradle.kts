@@ -68,6 +68,14 @@ dependencies {
     // DeepAR SDK
     implementation("ai.deepar.ar:DeepAR:5.6.20")
 
+    // Snapchat Camera Kit SDK
+    implementation("com.snap.camerakit:camerakit:1.31.0")
+    implementation("com.snap.camerakit:support-camerax:1.31.0")
+    implementation("com.snap.camerakit:support-camera-layout:1.31.0")
+
+    // Glide for loading lens thumbnail images
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+
     // Firebase BOM and modules
     implementation(platform("com.google.firebase:firebase-bom:33.1.2"))
     implementation("com.google.firebase:firebase-database")
