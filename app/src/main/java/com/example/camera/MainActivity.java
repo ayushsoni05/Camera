@@ -4641,6 +4641,16 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
 
             @Override
             public boolean onTouch(View v, MotionEvent event) {
+                if (cameraLayout != null && cameraLayout.getParent() != null && currentLensIndex >= 2) {
+                    int captureResId = getResources().getIdentifier("button_capture", "id", getPackageName());
+                    if (captureResId != 0) {
+                        View snapCaptureBtn = cameraLayout.findViewById(captureResId);
+                        if (snapCaptureBtn != null) {
+                            return snapCaptureBtn.dispatchTouchEvent(event);
+                        }
+                    }
+                }
+
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
                         initialY = event.getRawY();
@@ -5118,6 +5128,11 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                             config.setObservedGroupIds(groups);
                             return kotlin.Unit.INSTANCE;
                         });
+
+                        cameraLayout.configureLensesCache(config -> {
+                            config.setLensContentMaxSize(256 * 1024 * 1024L); // 256 MB cache allocation
+                            return kotlin.Unit.INSTANCE;
+                        });
                         
                         cameraLayout.onSessionAvailable(session -> {
                             Log.d("Snap", "=== CAMERA KIT SESSION AVAILABLE ===");
@@ -5127,6 +5142,22 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                             if (container != null) {
                                 container.removeView(spinner);
                             }
+
+                            cameraLayout.onImageTaken(bitmap -> {
+                                Log.d("Snap", "CameraKit captured image bitmap: " + bitmap.getWidth() + "x" + bitmap.getHeight());
+                                Uri imageUri = saveBitmapToGallery(bitmap);
+                                if (imageUri != null) {
+                                    runOnUiThread(() -> launchPostCapturePreview(imageUri, true));
+                                }
+                                return kotlin.Unit.INSTANCE;
+                            });
+
+                            cameraLayout.onVideoTaken(file -> {
+                                Log.d("Snap", "CameraKit captured video file: " + file.getAbsolutePath());
+                                Uri videoUri = Uri.fromFile(file);
+                                runOnUiThread(() -> launchPostCapturePreview(videoUri, false));
+                                return kotlin.Unit.INSTANCE;
+                            });
                             
                             String[] snapGroups = {
                                 "bc22a103-71f6-431e-8dcf-7c616a4cb6b3",
@@ -5142,9 +5173,15 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                                     result -> {
                                         Log.d("Snap", "Lenses repository result for group " + groupId + ": " + result.getClass().getSimpleName());
                                         if (result instanceof com.snap.camerakit.lenses.LensesComponent.Repository.Result.Some) {
-                                            java.util.List<com.snap.camerakit.lenses.LensesComponent.Lens> lenses = 
-                                                ((com.snap.camerakit.lenses.LensesComponent.Repository.Result.Some) result).getLenses();
+                                             java.util.List<com.snap.camerakit.lenses.LensesComponent.Lens> lenses = 
+                                                 ((com.snap.camerakit.lenses.LensesComponent.Repository.Result.Some) result).getLenses();
                                             Log.d("Snap", "Group " + groupId + " returned " + lenses.size() + " lenses");
+                                            
+                                            // Prefetch observed group lenses to store them in the local offline cache
+                                            session.getLenses().getPrefetcher().run(lenses, success -> {
+                                                Log.d("Snap", "Prefetched lenses status for group " + groupId + ": " + success);
+                                            });
+
                                             for (com.snap.camerakit.lenses.LensesComponent.Lens l : lenses) {
                                                 Log.d("Snap", "  Lens: id=" + l.getId() + ", name=" + l.getName());
                                             }
