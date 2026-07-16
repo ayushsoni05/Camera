@@ -85,26 +85,61 @@
             70% { transform: scale(1.15); box-shadow: 0 0 0 15px rgba(255, 165, 0, 0); }
             100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 165, 0, 0); }
         }
+
+        /* Search Radar Ping */
+        .search-ping-marker {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .ping-circle {
+            width: 10px;
+            height: 10px;
+            background: #FFFC00; /* Snapchat Yellow */
+            border: 3px solid #FFFFFF;
+            border-radius: 50%;
+            box-shadow: 0 0 20px #FFFC00;
+            animation: ping-expand 1.5s ease-out infinite;
+        }
+        @keyframes ping-expand {
+            0% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(255, 252, 0, 0.8); }
+            100% { transform: scale(6); opacity: 0; box-shadow: 0 0 0 30px rgba(255, 252, 0, 0); }
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
     <script>
-        var map = L.map('map', {
-            zoomControl: false,
-            attributionControl: false
-        }).setView([34.0522, -118.2437], 14);
-
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19
-        }).addTo(map);
-
+        var map = null;
         var userMarker = null;
         var friendMarkers = {};
         var hotspotMarkers = {};
+        var searchPing = null;
+
+        function initMap() {
+            if (typeof L === 'undefined') {
+                setTimeout(initMap, 100);
+                return;
+            }
+            map = L.map('map', {
+                zoomControl: false,
+                attributionControl: false
+            }).setView([34.0522, -118.2437], 14);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19
+            }).addTo(map);
+        }
+        initMap();
 
         // 1. Update Current User Marker
         function updateUserLocation(lat, lng, isGhost) {
+            if (!map) {
+                setTimeout(function() { updateUserLocation(lat, lng, isGhost); }, 200);
+                return;
+            }
             var latlng = [lat, lng];
             map.panTo(latlng);
             
@@ -135,6 +170,10 @@
 
         // 2. Update Friend Marker
         function updateFriendLocation(name, lat, lng, emoji) {
+            if (!map) {
+                setTimeout(function() { updateFriendLocation(name, lat, lng, emoji); }, 200);
+                return;
+            }
             var latlng = [lat, lng];
             
             var avatarSvg = '<svg viewBox="0 0 100 100" width="22" height="22" style="margin-top:1px;"><circle cx="50" cy="50" r="45" fill="#FFE0B2" stroke="#000" stroke-width="4"/><path d="M25,35 Q50,15 75,35" fill="none" stroke="#5D4037" stroke-width="10" stroke-linecap="round"/><rect x="25" y="42" width="20" height="8" rx="3" fill="#000"/><rect x="55" y="42" width="20" height="8" rx="3" fill="#000"/><line x1="45" y1="46" x2="55" y2="46" stroke="#000" stroke-width="4"/><path d="M40,65 Q50,75 60,65" fill="none" stroke="#FF5252" stroke-width="5" stroke-linecap="round"/></svg>';
@@ -161,6 +200,10 @@
 
         // 3. Add POI Hotspots
         function addHotspot(name, lat, lng) {
+            if (!map) {
+                setTimeout(function() { addHotspot(name, lat, lng); }, 200);
+                return;
+            }
             var latlng = [lat, lng];
             
             var hotspotIcon = L.divIcon({
@@ -178,6 +221,33 @@
                 });
                 hotspotMarkers[name] = marker;
             }
+        }
+
+        // 4. Show Search Radar Circle Effect
+        function showSearchPing(lat, lng) {
+            if (!map) return;
+            var latlng = [lat, lng];
+            map.setView(latlng, 16);
+            
+            if (searchPing) {
+                map.removeLayer(searchPing);
+            }
+            
+            var pingIcon = L.divIcon({
+                className: 'search-ping-marker',
+                html: '<div class="ping-circle"></div>',
+                iconSize: [60, 60],
+                iconAnchor: [30, 30]
+            });
+            
+            searchPing = L.marker(latlng, {icon: pingIcon}).addTo(map);
+            
+            setTimeout(function() {
+                if (searchPing) {
+                    map.removeLayer(searchPing);
+                    searchPing = null;
+                }
+            }, 3000);
         }
     </script>
 </body>

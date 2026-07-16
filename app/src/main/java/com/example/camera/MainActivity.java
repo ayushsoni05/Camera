@@ -73,6 +73,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.DatabaseReference;
+import java.util.Map;
+import java.util.HashMap;
 
 public class MainActivity extends AppCompatActivity implements android.hardware.SensorEventListener {
 
@@ -656,12 +660,24 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         double latOffset;
         double lngOffset;
         String[] storyUrls;
+        boolean isAbsolute = false;
+        double absoluteLat = 0.0;
+        double absoluteLng = 0.0;
         
         MockHotspot(String name, double latOffset, double lngOffset, String[] storyUrls) {
             this.name = name;
             this.latOffset = latOffset;
             this.lngOffset = lngOffset;
             this.storyUrls = storyUrls;
+            this.isAbsolute = false;
+        }
+
+        MockHotspot(String name, double absoluteLat, double absoluteLng, String[] storyUrls, boolean isAbsolute) {
+            this.name = name;
+            this.absoluteLat = absoluteLat;
+            this.absoluteLng = absoluteLng;
+            this.storyUrls = storyUrls;
+            this.isAbsolute = isAbsolute;
         }
     }
     
@@ -720,6 +736,57 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 100);
         }
 
+        // Bind search input and results list
+        EditText searchInput = findViewById(R.id.map_search_input);
+        ImageButton searchClear = findViewById(R.id.map_search_clear);
+        androidx.recyclerview.widget.RecyclerView resultsRecycler = findViewById(R.id.map_search_results_recycler);
+        
+        if (resultsRecycler != null) {
+            resultsRecycler.setLayoutManager(new androidx.recyclerview.widget.LinearLayoutManager(this));
+        }
+
+        if (searchInput != null) {
+            searchInput.addTextChangedListener(new android.text.TextWatcher() {
+                @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+                @Override
+                public void afterTextChanged(android.text.Editable s) {
+                    String query = s.toString().trim();
+                    if (query.isEmpty()) {
+                        if (searchClear != null) searchClear.setVisibility(View.GONE);
+                        if (resultsRecycler != null) resultsRecycler.setVisibility(View.GONE);
+                    } else {
+                        if (searchClear != null) searchClear.setVisibility(View.VISIBLE);
+                        performMapSearch(query, resultsRecycler);
+                    }
+                }
+            });
+        }
+        
+        if (searchClear != null && searchInput != null) {
+            searchClear.setOnClickListener(v -> searchInput.setText(""));
+        }
+
+        // Bind My Location FAB
+        View myLocationBtn = findViewById(R.id.map_my_location_btn);
+        if (myLocationBtn != null) {
+            myLocationBtn.setOnClickListener(v -> {
+                if (lastUserLat != 0.0 && lastUserLng != 0.0) {
+                    showToast("Centering on your location 📍");
+                    if (mapWebView != null) {
+                        mapWebView.post(() -> {
+                            mapWebView.loadUrl("javascript:updateUserLocation(" + lastUserLat + ", " + lastUserLng + ", " + isGhostModeEnabled + ")");
+                        });
+                    }
+                } else {
+                    showToast("Waiting for GPS location...");
+                }
+            });
+        }
+
+        // Start listening to dynamic public snaps from Firebase
+        listenForPublicSnaps();
+
         startMapLoop();
     }
 
@@ -750,9 +817,9 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             }
             
             for (MockHotspot h : mapHotspots) {
-                double hLat = lastUserLat + h.latOffset;
-                double hLng = lastUserLng + h.lngOffset;
-                mapWebView.loadUrl("javascript:addHotspot('" + h.name + "', " + hLat + ", " + hLng + ")");
+                double hLat = h.isAbsolute ? h.absoluteLat : lastUserLat + h.latOffset;
+                double hLng = h.isAbsolute ? h.absoluteLng : lastUserLng + h.lngOffset;
+                mapWebView.loadUrl("javascript:addHotspot('" + h.name.replace("'", "\\'") + "', " + hLat + ", " + hLng + ")");
             }
             
             updateNearbyFriendsDrawer();
@@ -840,8 +907,8 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
 
             item.setOnClickListener(v -> {
                 if (mapWebView != null) {
-                    double hLat = lastUserLat + h.latOffset;
-                    double hLng = lastUserLng + h.lngOffset;
+                    double hLat = h.isAbsolute ? h.absoluteLat : lastUserLat + h.latOffset;
+                    double hLng = h.isAbsolute ? h.absoluteLng : lastUserLng + h.lngOffset;
                     mapWebView.loadUrl("javascript:map.panTo([" + hLat + ", " + hLng + "])");
                     playMapHotspotStories(h.name);
                 }
@@ -5339,8 +5406,19 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         View saveBtn = findViewById(R.id.post_btn_save);
         View shareBtn = findViewById(R.id.post_btn_share);
         View sendStoryBtn = findViewById(R.id.post_btn_send_story);
+        View snapMapBtn = findViewById(R.id.post_btn_snap_map);
         View stickersBtn = findViewById(R.id.post_btn_stickers);
         View musicBtn = findViewById(R.id.post_btn_music);
+        
+        if (snapMapBtn != null) {
+            snapMapBtn.setOnClickListener(v -> {
+                if (capturedUri == null) {
+                    showToast("No media to post!");
+                    return;
+                }
+                postSnapToMap(capturedUri.toString(), capturedIsPhoto);
+            });
+        }
         
         DoodleView doodleView = findViewById(R.id.doodle_canvas);
         FrameLayout overlayContainer = findViewById(R.id.post_capture_overlay_container);
@@ -7312,4 +7390,237 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             timerHandler.postDelayed(this, 1000);
         }
     };
+
+    private final List<MockHotspot> firebaseMapSnaps = new ArrayList<>();
+
+    private void listenForPublicSnaps() {
+        FirebaseDatabase database = FirebaseDatabase.getInstance();
+        DatabaseReference publicSnapsRef = database.getReference("public_snaps");
+        
+        publicSnapsRef.addValueEventListener(new com.google.firebase.database.ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull com.google.firebase.database.DataSnapshot snapshot) {
+                // Remove old firebase hotspots
+                for (MockHotspot h : firebaseMapSnaps) {
+                    mapHotspots.remove(h);
+                }
+                firebaseMapSnaps.clear();
+                
+                // Group snaps by coordinate vicinity so we can group multiple snaps at the same location into a single hotspot
+                java.util.Map<String, java.util.List<String>> groupedSnaps = new java.util.HashMap<>();
+                java.util.Map<String, double[]> coordinatesMap = new java.util.HashMap<>();
+                
+                for (com.google.firebase.database.DataSnapshot child : snapshot.getChildren()) {
+                    try {
+                        String mediaPath = child.child("mediaPath").getValue(String.class);
+                        Double lat = child.child("latitude").getValue(Double.class);
+                        Double lng = child.child("longitude").getValue(Double.class);
+                        
+                        if (mediaPath != null && lat != null && lng != null) {
+                            String key = String.format(java.util.Locale.US, "%.4f,%.4f", lat, lng);
+                            if (!groupedSnaps.containsKey(key)) {
+                                groupedSnaps.put(key, new java.util.ArrayList<>());
+                                coordinatesMap.put(key, new double[]{lat, lng});
+                            }
+                            groupedSnaps.get(key).add(mediaPath);
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error parsing public snap", e);
+                    }
+                }
+                
+                // Add hotspots to list
+                int count = 1;
+                for (java.util.Map.Entry<String, java.util.List<String>> entry : groupedSnaps.entrySet()) {
+                    double[] coords = coordinatesMap.get(entry.getKey());
+                    java.util.List<String> urls = entry.getValue();
+                    String[] storyUrlsArray = urls.toArray(new String[0]);
+                    
+                    MockHotspot hotspot = new MockHotspot(
+                        "Public Snap " + count,
+                        coords[0],
+                        coords[1],
+                        storyUrlsArray,
+                        true
+                    );
+                    firebaseMapSnaps.add(hotspot);
+                    mapHotspots.add(hotspot);
+                    count++;
+                }
+                
+                refreshMapUI();
+            }
+            
+            @Override
+            public void onCancelled(@NonNull com.google.firebase.database.DatabaseError error) {
+                Log.e(TAG, "Failed to listen for public snaps", error.toException());
+            }
+        });
+    }
+
+    private void performMapSearch(String query, androidx.recyclerview.widget.RecyclerView resultsRecycler) {
+        if (resultsRecycler == null) return;
+        List<MapSearchResult> results = new ArrayList<>();
+        String lowerQuery = query.toLowerCase(java.util.Locale.ROOT);
+        
+        // 1. Search friends
+        for (MockFriendLocation f : mapFriends) {
+            if (f.name.toLowerCase(java.util.Locale.ROOT).contains(lowerQuery)) {
+                results.add(new MapSearchResult(
+                    f.name,
+                    "Friend nearby",
+                    f.emoji,
+                    f.currentLat,
+                    f.currentLng,
+                    false
+                ));
+            }
+        }
+        
+        // 2. Search hotspots
+        for (MockHotspot h : mapHotspots) {
+            if (h.name.toLowerCase(java.util.Locale.ROOT).contains(lowerQuery)) {
+                double hLat = h.isAbsolute ? h.absoluteLat : lastUserLat + h.latOffset;
+                double hLng = h.isAbsolute ? h.absoluteLng : lastUserLng + h.lngOffset;
+                results.add(new MapSearchResult(
+                    h.name,
+                    "Hotspot Story",
+                    "🔥",
+                    hLat,
+                    hLng,
+                    true
+                ));
+            }
+        }
+        
+        if (results.isEmpty()) {
+            resultsRecycler.setVisibility(View.GONE);
+        } else {
+            resultsRecycler.setVisibility(View.VISIBLE);
+            MapSearchAdapter adapter = new MapSearchAdapter(results, result -> {
+                resultsRecycler.setVisibility(View.GONE);
+                EditText searchInput = findViewById(R.id.map_search_input);
+                if (searchInput != null) {
+                    searchInput.clearFocus();
+                    android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                    if (imm != null) imm.hideSoftInputFromWindow(searchInput.getWindowToken(), 0);
+                }
+                
+                if (mapWebView != null) {
+                    mapWebView.post(() -> {
+                        mapWebView.loadUrl("javascript:showSearchPing(" + result.latitude + ", " + result.longitude + ")");
+                    });
+                }
+                
+                if (result.isHotspot) {
+                    playMapHotspotStories(result.title);
+                } else {
+                    showToast("Centering on " + result.title + " 📍");
+                }
+            });
+            resultsRecycler.setAdapter(adapter);
+        }
+    }
+
+    private void postSnapToMap(String mediaPath, boolean isPhoto) {
+        if (lastUserLat == 0.0 && lastUserLng == 0.0) {
+            showToast("Cannot post: Location unknown!");
+            return;
+        }
+        
+        showToast("Posting to Snap Map... 📍");
+        
+        FirebaseDatabase database = FirebaseDatabase.getInstance();
+        DatabaseReference publicSnapsRef = database.getReference("public_snaps");
+        
+        String snapId = java.util.UUID.randomUUID().toString();
+        Map<String, Object> snapData = new HashMap<>();
+        snapData.put("id", snapId);
+        snapData.put("userId", "currentUser");
+        snapData.put("mediaPath", mediaPath);
+        snapData.put("isPhoto", isPhoto);
+        snapData.put("latitude", lastUserLat);
+        snapData.put("longitude", lastUserLng);
+        snapData.put("timestamp", System.currentTimeMillis());
+        
+        publicSnapsRef.child(snapId).setValue(snapData)
+            .addOnSuccessListener(aVoid -> {
+                runOnUiThread(() -> {
+                    showNotification("Snap Map 📍", "Successfully posted your Snap to the map!", "🔥");
+                    findViewById(R.id.post_capture_layer).setVisibility(View.GONE);
+                    DoodleView doodleView = findViewById(R.id.doodle_canvas);
+                    if (doodleView != null) {
+                        doodleView.clearCanvas();
+                        doodleView.setVisibility(View.GONE);
+                    }
+                    FrameLayout overlayContainer = findViewById(R.id.post_capture_overlay_container);
+                    if (overlayContainer != null) {
+                        overlayContainer.removeAllViews();
+                    }
+                    selectedMusicTrack = null;
+                    startCamera();
+                });
+            })
+            .addOnFailureListener(e -> {
+                runOnUiThread(() -> showToast("Failed to post: " + e.getMessage()));
+            });
+    }
+
+    private static class MapSearchResult {
+        String title;
+        String subtitle;
+        String emoji;
+        double latitude;
+        double longitude;
+        boolean isHotspot;
+        
+        MapSearchResult(String title, String subtitle, String emoji, double latitude, double longitude, boolean isHotspot) {
+            this.title = title;
+            this.subtitle = subtitle;
+            this.emoji = emoji;
+            this.latitude = latitude;
+            this.longitude = longitude;
+            this.isHotspot = isHotspot;
+        }
+    }
+
+    private class MapSearchAdapter extends androidx.recyclerview.widget.RecyclerView.Adapter<MapSearchAdapter.ViewHolder> {
+        private final List<MapSearchResult> items;
+        private final java.util.function.Consumer<MapSearchResult> onItemClickListener;
+
+        MapSearchAdapter(List<MapSearchResult> items, java.util.function.Consumer<MapSearchResult> onItemClickListener) {
+            this.items = items;
+            this.onItemClickListener = onItemClickListener;
+        }
+
+        @NonNull
+        @Override
+        public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            TextView textView = new TextView(parent.getContext());
+            textView.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            textView.setPadding(32, 24, 32, 24);
+            textView.setTextColor(android.graphics.Color.WHITE);
+            textView.setTextSize(14);
+            textView.setBackgroundResource(R.drawable.glass_rec_pill);
+            textView.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#1A1A24")));
+            return new ViewHolder(textView);
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+            MapSearchResult item = items.get(position);
+            TextView tv = (TextView) holder.itemView;
+            tv.setText(item.emoji + " " + item.title + " (" + item.subtitle + ")");
+            tv.setOnClickListener(v -> onItemClickListener.accept(item));
+        }
+
+        @Override
+        public int getItemCount() {
+            return items.size();
+        }
+
+        class ViewHolder extends androidx.recyclerview.widget.RecyclerView.ViewHolder {
+            ViewHolder(View v) { super(v); }
+        }
+    }
 }
