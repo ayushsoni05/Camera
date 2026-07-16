@@ -160,12 +160,12 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
     private com.snap.camerakit.Session cameraKitSession;
     private final java.util.List<com.snap.camerakit.lenses.LensesComponent.Lens> snapLenses = new java.util.ArrayList<>();
     private final java.util.List<String> combinedLensesList = new java.util.ArrayList<>();
-    private final String[] allowedSnapchatLensIds = {
+    private String[] allowedSnapchatLensIds = {
         "40369030925", "43276710876", "43276930875", "43281170875", "43288720877", 
         "43288930875", "43290810875", "43290830875", "43293650876", "43294710875", 
         "43296870875", "43296900875", "43300180875", "43301890875", "43309500875", 
-        "43309530875", "44949520876", "49414230875", "50502080875", "50507980875", 
-        "58318710878", "58553360909", "59750560887"
+        "43309530875", "44949520876", "49414230875", "49820200880", "50502080875", 
+        "50507980875", "58318710878", "58553360909", "59750560887"
     };
     private final String[] allowedSnapchatLensNames = {
         "Filter 1", "Filter 2", "Filter 3", "Filter 4", "Filter 5", "Filter 6", "Filter 7", "Filter 8",
@@ -432,7 +432,7 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
 
     private void showTutorialIfNeeded() {
         android.content.SharedPreferences prefs = getPreferences(MODE_PRIVATE);
-        boolean isFirstRun = prefs.getBoolean("is_first_run_snap", true);
+        boolean isFirstRun = false; // Disable to prevent blocking input
         if (isFirstRun) {
             View tut = findViewById(R.id.tutorial_overlay);
             if (tut != null) tut.setVisibility(View.VISIBLE);
@@ -5028,24 +5028,30 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                     }
                     
                     if (container != null && cameraLayout == null) {
+                        Log.d("Snap", "Creating CameraLayout...");
                         cameraLayout = new com.snap.camerakit.support.widget.CameraLayout(MainActivity.this);
                         container.addView(cameraLayout);
                         
                         cameraLayout.configureSession(config -> {
-                            config.apiToken("eyJhbGciOiJIUzI1NiIsImtpZCI6IkNhbnZhc1MyU0hNQUNQcm9kIiwidHlwIjoiSldUIn0.eyJhdWQiOiJjYW52YXMtY2FudmFzYXBpIiwiaXNzIjoiY2FudmFzLXMyc3Rva2VuIiwibmJmIjoxNzg0MDI2ODg3LCJzdWIiOiI0YjE4Yjk0Ny1mYTFmLTRkMDEtOWQ5ZC04ODRkZDljMDFiMTB-UFJPRFVDVElPTn5kNzQ5OGNlMC0zOWE3LTRmMjMtYTQ5Ny03ZjQyM2MyMmVjNDcifQ.wWwCy4K16Fmd9XlqHAFRsbgDNNpGLJ64a9T30IhghY4");
+                            Log.d("Snap", "Configuring CameraKit Session with staging token");
+                            config.apiToken("eyJhbGciOiJIUzI1NiIsImtpZCI6IkNhbnZhc1MyU0hNQUNQcm9kIiwidHlwIjoiSldUIn0.eyJhdWQiOiJjYW52YXMtY2FudmFzYXBpIiwiaXNzIjoiY2FudmFzLXMyc3Rva2VuIiwibmJmIjoxNzg0MTk0NDc3LCJzdWIiOiI0YjE4Yjk0Ny1mYTFmLTRkMDEtOWQ5ZC04ODRkZDljMDFiMTB-U1RBR0lOR35kOGQ3M2NhNS0zMDJkLTQyYWMtYjBhMy0wY2FkMDgxNTE4ZDMifQ.8Gj9OxfiOyBZ-T-tv5QnkUX2UWhm0Ji5wHwlqUNV0Zw");
                             return kotlin.Unit.INSTANCE;
                         });
                         
                         cameraLayout.configureLensesCarousel(config -> {
+                            Log.d("Snap", "Configuring observed group IDs");
                             java.util.LinkedHashSet<String> groups = new java.util.LinkedHashSet<>();
-                            groups.add("a6790c27-5c53-47dd-a91c-b87886db50d0");
-                            groups.add("0ea04bbf-bdab-4c82-8637-e5ed02a07e0c");
                             groups.add("bc22a103-71f6-431e-8dcf-7c616a4cb6b3");
+                            groups.add("d8d73ca5-302d-42ac-b0a3-0cad081518d3");
+                            groups.add("39afd70e-5045-4dec-9db9-14bca58dcd0d");
+                            groups.add("0ea04bbf-bdab-4c82-8637-e5ed02a07e0c");
+                            groups.add("a6790c27-5c53-47dd-a91c-b87886db50d0");
                             config.setObservedGroupIds(groups);
                             return kotlin.Unit.INSTANCE;
                         });
                         
                         cameraLayout.onSessionAvailable(session -> {
+                            Log.d("Snap", "=== CAMERA KIT SESSION AVAILABLE ===");
                             MainActivity.this.cameraKitSession = session;
                             isTransitioningToSnapchat = false;
                             
@@ -5054,56 +5060,66 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                             }
                             
                             String[] snapGroups = {
-                                "a6790c27-5c53-47dd-a91c-b87886db50d0",
+                                "bc22a103-71f6-431e-8dcf-7c616a4cb6b3",
+                                "d8d73ca5-302d-42ac-b0a3-0cad081518d3",
+                                "39afd70e-5045-4dec-9db9-14bca58dcd0d",
                                 "0ea04bbf-bdab-4c82-8637-e5ed02a07e0c",
-                                "bc22a103-71f6-431e-8dcf-7c616a4cb6b3"
+                                "a6790c27-5c53-47dd-a91c-b87886db50d0"
                             };
                             for (String groupId : snapGroups) {
+                                Log.d("Snap", "Observing repository for group: " + groupId);
                                 session.getLenses().getRepository().observe(
                                     new com.snap.camerakit.lenses.LensesComponent.Repository.QueryCriteria.Available(groupId),
                                     result -> {
+                                        Log.d("Snap", "Lenses repository result for group " + groupId + ": " + result.getClass().getSimpleName());
                                         if (result instanceof com.snap.camerakit.lenses.LensesComponent.Repository.Result.Some) {
                                             java.util.List<com.snap.camerakit.lenses.LensesComponent.Lens> lenses = 
                                                 ((com.snap.camerakit.lenses.LensesComponent.Repository.Result.Some) result).getLenses();
+                                            Log.d("Snap", "Group " + groupId + " returned " + lenses.size() + " lenses");
+                                            for (com.snap.camerakit.lenses.LensesComponent.Lens l : lenses) {
+                                                Log.d("Snap", "  Lens: id=" + l.getId() + ", name=" + l.getName());
+                                            }
                                             runOnUiThread(() -> {
+                                                int slotIndex = 0;
                                                 for (com.snap.camerakit.lenses.LensesComponent.Lens lens : lenses) {
+                                                    if (slotIndex >= 24) break;
                                                     lensIdToGroupIdMap.put(lens.getId(), groupId);
                                                     
-                                                    int index = -1;
-                                                    for (int i = 0; i < allowedSnapchatLensIds.length; i++) {
-                                                        if (allowedSnapchatLensIds[i].equals(lens.getId())) {
-                                                            index = i;
+                                                    // Map the lens to our carousel slot
+                                                    if (2 + slotIndex < lensItems.size()) {
+                                                        lensItems.get(2 + slotIndex).name = lens.getName();
+                                                        try {
+                                                            for (Object icon : lens.getIcons()) {
+                                                                if (icon instanceof com.snap.camerakit.lenses.LensesComponent.Lens.Media.Image) {
+                                                                    String uri = ((com.snap.camerakit.lenses.LensesComponent.Lens.Media.Image) icon).getUri();
+                                                                    if (uri != null) {
+                                                                        lensItems.get(2 + slotIndex).iconUrl = uri.toString();
+                                                                        Log.d("Snap", "  Mapped iconUrl to slot " + slotIndex + ": " + uri);
+                                                                        break;
+                                                                    }
+                                                                }
+                                                            }
+                                                        } catch (Exception e) {
+                                                            Log.e("Snap", "Failed to retrieve icon for lens " + lens.getId(), e);
+                                                        }
+                                                    }
+                                                    
+                                                    // Make sure the allowed array is updated so apply calls work
+                                                    if (slotIndex < allowedSnapchatLensIds.length) {
+                                                        allowedSnapchatLensIds[slotIndex] = lens.getId();
+                                                    }
+                                                    
+                                                    boolean exists = false;
+                                                    for (com.snap.camerakit.lenses.LensesComponent.Lens existing : snapLenses) {
+                                                        if (existing.getId().equals(lens.getId())) {
+                                                            exists = true;
                                                             break;
                                                         }
                                                     }
-                                                    if (index != -1) {
-                                                        if (2 + index < lensItems.size()) {
-                                                            lensItems.get(2 + index).name = lens.getName();
-                                                            try {
-                                                                for (Object icon : lens.getIcons()) {
-                                                                    if (icon instanceof com.snap.camerakit.lenses.LensesComponent.Lens.Media.Image) {
-                                                                        String uri = ((com.snap.camerakit.lenses.LensesComponent.Lens.Media.Image) icon).getUri();
-                                                                        if (uri != null) {
-                                                                            lensItems.get(2 + index).iconUrl = uri.toString();
-                                                                            break;
-                                                                        }
-                                                                    }
-                                                                }
-                                                            } catch (Exception e) {
-                                                                Log.d("Snap", "No icon for lens: " + lens.getId());
-                                                            }
-                                                        }
-                                                        boolean exists = false;
-                                                        for (com.snap.camerakit.lenses.LensesComponent.Lens existing : snapLenses) {
-                                                            if (existing.getId().equals(lens.getId())) {
-                                                                exists = true;
-                                                                break;
-                                                            }
-                                                        }
-                                                        if (!exists) {
-                                                            snapLenses.add(lens);
-                                                        }
+                                                    if (!exists) {
+                                                        snapLenses.add(lens);
                                                     }
+                                                    slotIndex++;
                                                 }
                                                 androidx.recyclerview.widget.RecyclerView carousel = findViewById(R.id.lenses_carousel);
                                                 if (carousel != null && carousel.getAdapter() != null) {
@@ -5122,6 +5138,7 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                             
                             // Fallback: query lenses by ID for any that weren't found via group observation
                             new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                                Log.d("Snap", "Triggering fallback query by individual lens IDs");
                                 for (int i = 0; i < allowedSnapchatLensIds.length; i++) {
                                     final int idx = i;
                                     String lensId = allowedSnapchatLensIds[i];
@@ -5131,13 +5148,16 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                                     }
                                     if (!alreadyFound) {
                                         String fallbackGroupId = lensIdToGroupIdMap.getOrDefault(lensId,
-                                            "0ea04bbf-bdab-4c82-8637-e5ed02a07e0c");
+                                            "d8d73ca5-302d-42ac-b0a3-0cad081518d3");
+                                        Log.d("Snap", "Fallback query for lens ID: " + lensId + " in group: " + fallbackGroupId);
                                         session.getLenses().getRepository().observe(
                                             new com.snap.camerakit.lenses.LensesComponent.Repository.QueryCriteria.ById(lensId, fallbackGroupId),
                                             fallbackResult -> {
+                                                Log.d("Snap", "Fallback query result for lens " + lensId + ": " + fallbackResult.getClass().getSimpleName());
                                                 if (fallbackResult instanceof com.snap.camerakit.lenses.LensesComponent.Repository.Result.Some) {
                                                     java.util.List<com.snap.camerakit.lenses.LensesComponent.Lens> fallbackLenses =
                                                         ((com.snap.camerakit.lenses.LensesComponent.Repository.Result.Some) fallbackResult).getLenses();
+                                                    Log.d("Snap", "Fallback query returned " + fallbackLenses.size() + " lenses for " + lensId);
                                                     runOnUiThread(() -> {
                                                         for (com.snap.camerakit.lenses.LensesComponent.Lens lens : fallbackLenses) {
                                                             for (int j = 0; j < allowedSnapchatLensIds.length; j++) {
@@ -5157,12 +5177,13 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                                                                                         String uri = ((com.snap.camerakit.lenses.LensesComponent.Lens.Media.Image) icon).getUri();
                                                                                         if (uri != null) {
                                                                                             lensItems.get(2 + j).iconUrl = uri.toString();
+                                                                                            Log.d("Snap", "  Fallback mapped iconUrl to slot " + j + ": " + uri);
                                                                                             break;
                                                                                         }
                                                                                     }
                                                                                 }
                                                                             } catch (Exception e) {
-                                                                                Log.d("Snap", "No icon in fallback for: " + lens.getId());
+                                                                                Log.e("Snap", "No icon in fallback for: " + lens.getId(), e);
                                                                             }
                                                                         }
                                                                     }

@@ -19,7 +19,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:scaleType="centerCrop"
-            android:visibility="gone" />
+            android:visibility="visible" />
 
         <!-- Emoji representing the lens (fallback when no thumbnail) -->
         <TextView
