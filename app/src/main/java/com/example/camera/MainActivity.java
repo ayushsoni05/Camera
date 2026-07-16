@@ -752,12 +752,14 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                 @Override
                 public void afterTextChanged(android.text.Editable s) {
                     String query = s.toString().trim();
+                    mapSearchHandler.removeCallbacks(mapSearchRunnable);
                     if (query.isEmpty()) {
                         if (searchClear != null) searchClear.setVisibility(View.GONE);
                         if (resultsRecycler != null) resultsRecycler.setVisibility(View.GONE);
                     } else {
                         if (searchClear != null) searchClear.setVisibility(View.VISIBLE);
-                        performMapSearch(query, resultsRecycler);
+                        mapSearchRunnable = () -> queryPhotonApi(query, resultsRecycler);
+                        mapSearchHandler.postDelayed(mapSearchRunnable, 400);
                     }
                 }
             });
@@ -7458,41 +7460,183 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         });
     }
 
-    private void performMapSearch(String query, androidx.recyclerview.widget.RecyclerView resultsRecycler) {
+    private final android.os.Handler mapSearchHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private Runnable mapSearchRunnable;
+    private final java.util.concurrent.ExecutorService searchExecutor = java.util.concurrent.Executors.newSingleThreadExecutor();
+
+    private void queryPhotonApi(String query, androidx.recyclerview.widget.RecyclerView resultsRecycler) {
+        double currentLat = lastUserLat;
+        double currentLng = lastUserLng;
+        
+        searchExecutor.execute(() -> {
+            java.net.HttpURLConnection urlConnection = null;
+            try {
+                String encodedQuery = java.net.URLEncoder.encode(query, "UTF-8");
+                String urlString = "https://photon.komoot.io/api/?q=" + encodedQuery;
+                if (currentLat != 0.0 && currentLng != 0.0) {
+                    urlString += "&lat=" + currentLat + "&lon=" + currentLng;
+                }
+                urlString += "&limit=15";
+                
+                java.net.URL url = new java.net.URL(urlString);
+                urlConnection = (java.net.HttpURLConnection) url.openConnection();
+                urlConnection.setRequestProperty("User-Agent", "PrismaticAura-SnapMap/1.0");
+                urlConnection.setConnectTimeout(5000);
+                urlConnection.setReadTimeout(5000);
+                
+                int status = urlConnection.getResponseCode();
+                if (status == 200) {
+                    java.io.InputStream in = new java.io.BufferedInputStream(urlConnection.getInputStream());
+                    java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(in, "UTF-8"));
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        sb.append(line);
+                    }
+                    reader.close();
+                    
+                    org.json.JSONObject response = new org.json.JSONObject(sb.toString());
+                    org.json.JSONArray features = response.optJSONArray("features");
+                    List<MapSearchResult> photonResults = new ArrayList<>();
+                    
+                    if (features != null) {
+                        for (int i = 0; i < features.length(); i++) {
+                            org.json.JSONObject feature = features.optJSONObject(i);
+                            if (feature == null) continue;
+                            
+                            org.json.JSONObject geometry = feature.optJSONObject("geometry");
+                            org.json.JSONObject properties = feature.optJSONObject("properties");
+                            if (geometry == null || properties == null) continue;
+                            
+                            org.json.JSONArray coordinates = geometry.optJSONArray("coordinates");
+                            if (coordinates == null || coordinates.length() < 2) continue;
+                            
+                            double lon = coordinates.optDouble(0);
+                            double lat = coordinates.optDouble(1);
+                            
+                            String name = properties.optString("name", "Unknown Location");
+                            String osmValue = properties.optString("osm_value", "");
+                            String osmKey = properties.optString("osm_key", "");
+                            
+                            String category = osmValue.isEmpty() ? osmKey : osmValue;
+                            if (category.length() > 1) {
+                                category = category.substring(0, 1).toUpperCase() + category.substring(1);
+                            }
+                            
+                            String street = properties.optString("street", "");
+                            String city = properties.optString("city", "");
+                            String country = properties.optString("country", "");
+                            
+                            StringBuilder subtitleBuilder = new StringBuilder();
+                            if (!category.isEmpty()) {
+                                subtitleBuilder.append(category);
+                            }
+                            if (!street.isEmpty()) {
+                                if (subtitleBuilder.length() > 0) subtitleBuilder.append(" • ");
+                                subtitleBuilder.append(street);
+                            }
+                            if (!city.isEmpty()) {
+                                if (subtitleBuilder.length() > 0) subtitleBuilder.append(", ");
+                                subtitleBuilder.append(city);
+                            } else if (!country.isEmpty()) {
+                                if (subtitleBuilder.length() > 0) subtitleBuilder.append(", ");
+                                subtitleBuilder.append(country);
+                            }
+                            
+                            String subtitle = subtitleBuilder.toString();
+                            String emoji = getEmojiForOsmCategory(osmValue, osmKey);
+                            
+                            photonResults.add(new MapSearchResult(name, subtitle, emoji, lat, lon, false));
+                        }
+                    }
+                    
+                    runOnUiThread(() -> {
+                        List<MapSearchResult> finalResults = new ArrayList<>();
+                        String lowerQuery = query.toLowerCase(java.util.Locale.ROOT);
+                        
+                        for (MockFriendLocation f : mapFriends) {
+                            if (f.name.toLowerCase(java.util.Locale.ROOT).contains(lowerQuery)) {
+                                finalResults.add(new MapSearchResult(f.name, "Friend nearby", f.emoji, f.currentLat, f.currentLng, false));
+                            }
+                        }
+                        
+                        for (MockHotspot h : mapHotspots) {
+                            if (h.name.toLowerCase(java.util.Locale.ROOT).contains(lowerQuery)) {
+                                double hLat = h.isAbsolute ? h.absoluteLat : lastUserLat + h.latOffset;
+                                double hLng = h.isAbsolute ? h.absoluteLng : lastUserLng + h.lngOffset;
+                                finalResults.add(new MapSearchResult(h.name, "Hotspot Story", "🔥", hLat, hLng, true));
+                            }
+                        }
+                        
+                        finalResults.addAll(photonResults);
+                        updateSearchResultsList(finalResults, resultsRecycler);
+                    });
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Photon search query failed", e);
+            } finally {
+                if (urlConnection != null) {
+                    urlConnection.disconnect();
+                }
+            }
+        });
+    }
+
+    private String getEmojiForOsmCategory(String osmValue, String osmKey) {
+        String cat = osmValue.isEmpty() ? osmKey : osmValue;
+        switch (cat.toLowerCase(java.util.Locale.ROOT)) {
+            case "cafe":
+            case "coffee":
+                return "☕";
+            case "restaurant":
+            case "food":
+            case "fast_food":
+                return "🍔";
+            case "bar":
+            case "pub":
+            case "nightclub":
+                return "🍹";
+            case "supermarket":
+            case "shop":
+            case "mall":
+            case "clothes":
+                return "🛍️";
+            case "hotel":
+            case "motel":
+            case "hostel":
+            case "tourism":
+                return "🏨";
+            case "park":
+            case "forest":
+            case "garden":
+                return "🌳";
+            case "attraction":
+            case "museum":
+            case "monument":
+                return "🎡";
+            case "school":
+            case "university":
+            case "college":
+                return "🏫";
+            case "station":
+            case "subway":
+            case "bus":
+            case "railway":
+                return "🚉";
+            case "hospital":
+            case "pharmacy":
+            case "clinic":
+                return "🏥";
+            case "bank":
+            case "atm":
+                return "💳";
+            default:
+                return "📍";
+        }
+    }
+
+    private void updateSearchResultsList(List<MapSearchResult> results, androidx.recyclerview.widget.RecyclerView resultsRecycler) {
         if (resultsRecycler == null) return;
-        List<MapSearchResult> results = new ArrayList<>();
-        String lowerQuery = query.toLowerCase(java.util.Locale.ROOT);
-        
-        // 1. Search friends
-        for (MockFriendLocation f : mapFriends) {
-            if (f.name.toLowerCase(java.util.Locale.ROOT).contains(lowerQuery)) {
-                results.add(new MapSearchResult(
-                    f.name,
-                    "Friend nearby",
-                    f.emoji,
-                    f.currentLat,
-                    f.currentLng,
-                    false
-                ));
-            }
-        }
-        
-        // 2. Search hotspots
-        for (MockHotspot h : mapHotspots) {
-            if (h.name.toLowerCase(java.util.Locale.ROOT).contains(lowerQuery)) {
-                double hLat = h.isAbsolute ? h.absoluteLat : lastUserLat + h.latOffset;
-                double hLng = h.isAbsolute ? h.absoluteLng : lastUserLng + h.lngOffset;
-                results.add(new MapSearchResult(
-                    h.name,
-                    "Hotspot Story",
-                    "🔥",
-                    hLat,
-                    hLng,
-                    true
-                ));
-            }
-        }
-        
         if (results.isEmpty()) {
             resultsRecycler.setVisibility(View.GONE);
         } else {
@@ -7596,22 +7740,18 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         @NonNull
         @Override
         public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            TextView textView = new TextView(parent.getContext());
-            textView.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-            textView.setPadding(32, 24, 32, 24);
-            textView.setTextColor(android.graphics.Color.WHITE);
-            textView.setTextSize(14);
-            textView.setBackgroundResource(R.drawable.glass_rec_pill);
-            textView.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#1A1A24")));
-            return new ViewHolder(textView);
+            View view = android.view.LayoutInflater.from(parent.getContext())
+                    .inflate(R.layout.item_map_search_result, parent, false);
+            return new ViewHolder(view);
         }
 
         @Override
         public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
             MapSearchResult item = items.get(position);
-            TextView tv = (TextView) holder.itemView;
-            tv.setText(item.emoji + " " + item.title + " (" + item.subtitle + ")");
-            tv.setOnClickListener(v -> onItemClickListener.accept(item));
+            holder.emojiView.setText(item.emoji);
+            holder.titleView.setText(item.title);
+            holder.subtitleView.setText(item.subtitle);
+            holder.itemView.setOnClickListener(v -> onItemClickListener.accept(item));
         }
 
         @Override
@@ -7620,7 +7760,16 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         }
 
         class ViewHolder extends androidx.recyclerview.widget.RecyclerView.ViewHolder {
-            ViewHolder(View v) { super(v); }
+            TextView emojiView;
+            TextView titleView;
+            TextView subtitleView;
+
+            ViewHolder(View v) {
+                super(v);
+                emojiView = v.findViewById(R.id.result_emoji);
+                titleView = v.findViewById(R.id.result_title);
+                subtitleView = v.findViewById(R.id.result_subtitle);
+            }
         }
     }
 }
