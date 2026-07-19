@@ -30,7 +30,7 @@
             android:value="eyJhbGciOiJIUzI1NiIsImtpZCI6IkNhbnZhc1MyU0hNQUNQcm9kIiwidHlwIjoiSldUIn0.eyJhdWQiOiJjYW52YXMtY2FudmFzYXBpIiwiaXNzIjoiY2FudmFzLXMyc3Rva2VuIiwibmJmIjoxNzg0MTk0NDc3LCJzdWIiOiI0YjE4Yjk0Ny1mYTFmLTRkMDEtOWQ5ZC04ODRkZDljMDFiMTB-U1RBR0lOR35kOGQ3M2NhNS0zMDJkLTQyYWMtYjBhMy0wY2FkMDgxNTE4ZDMifQ.8Gj9OxfiOyBZ-T-tv5QnkUX2UWhm0Ji5wHwlqUNV0Zw" />
 
         <activity
-            android:name=".MainActivity"
+            android:name=".AuthActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -38,6 +38,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="false" />
     </application>
 
 </manifest>

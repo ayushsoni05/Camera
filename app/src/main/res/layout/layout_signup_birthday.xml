@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F8F9FA"
+    android:clickable="true"
+    android:focusable="true">
+
+    <!-- Top Navigation Bar -->
+    <ImageButton
+        android:id="@+id/btn_signup_birthday_back"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:src="@drawable/ic_back"
+        app:tint="#111119"
+        android:contentDescription="Back" />
+
+    <!-- Main Content -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_below="@id/btn_signup_birthday_back"
+        android:layout_marginStart="32dp"
+        android:layout_marginEnd="32dp"
+        android:layout_marginTop="24dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="When's your birthday?"
+            android:textColor="#111119"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="24dp" />
+
+        <!-- Birthday Value Display -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="20dp">
+            
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="BIRTHDAY"
+                android:textColor="#808080"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.05" />
+
+            <TextView
+                android:id="@+id/tv_signup_birthday_display"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:gravity="center_vertical"
+                android:textColor="#111119"
+                android:textSize="18sp"
+                android:text="Choose your birthdate" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1.5dp"
+                android:background="#D0D0D8" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Bottom Container containing DatePicker spinner and Continue button -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_alignParentBottom="true"
+        android:background="#F0F1F5"
+        android:paddingTop="8dp">
+
+        <!-- Birthday Spinner DatePicker -->
+        <DatePicker
+            android:id="@+id/dp_signup_birthday"
+            android:layout_width="match_parent"
+            android:layout_height="180dp"
+            android:datePickerMode="spinner"
+            android:calendarViewShown="false" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_signup_birthday_next"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:layout_margin="24dp"
+            android:text="Continue"
+            android:textColor="#F8F9FA"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            app:cornerRadius="27dp"
+            android:backgroundTint="#00A4FF"
+            android:elevation="4dp" />
+    </LinearLayout>
+</RelativeLayout>
