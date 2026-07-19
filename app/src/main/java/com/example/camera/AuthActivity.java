@@ -77,9 +77,12 @@ public class AuthActivity extends AppCompatActivity {
             Log.e(TAG, "FirebaseDatabase init error", e);
         }
 
-        // Check if user is already logged in
+        // Check if user is already logged in (Firebase or Local)
         FirebaseUser currentUser = mAuth.getCurrentUser();
-        if (currentUser != null) {
+        android.content.SharedPreferences prefs = getSharedPreferences("AuthPrefs", MODE_PRIVATE);
+        boolean isLocalLoggedIn = prefs.getString("current_user_uid", null) != null;
+        
+        if (currentUser != null || isLocalLoggedIn) {
             launchMainActivity();
             return;
         }
@@ -170,14 +173,26 @@ public class AuthActivity extends AppCompatActivity {
                     if (task.isSuccessful()) {
                         launchMainActivity();
                     } else {
-                        Toast.makeText(AuthActivity.this, "Authentication failed: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
+                        Log.e(TAG, "Firebase login failed, trying local login", task.getException());
+                        if (loginLocally(emailInput, pass)) {
+                            Toast.makeText(this, "Logged in offline mode... 💾", Toast.LENGTH_SHORT).show();
+                            launchMainActivity();
+                        } else {
+                            Toast.makeText(AuthActivity.this, "Authentication failed: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
+                        }
                     }
                 });
     }
 
     private void loginWithUsername(String usernameInput, String pass) {
+        if (loginLocally(usernameInput, pass)) {
+            Toast.makeText(this, "Logged in offline mode... 💾", Toast.LENGTH_SHORT).show();
+            launchMainActivity();
+            return;
+        }
+
         if (mDatabase == null) {
-            Toast.makeText(this, "Database offline. Try email login.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Authentication failed: Database unavailable", Toast.LENGTH_LONG).show();
             return;
         }
 
@@ -364,6 +379,15 @@ public class AuthActivity extends AppCompatActivity {
     }
 
     private void checkUsernameAvailability(String checkedUsername, TextView tvStatus, View btnNext) {
+        android.content.SharedPreferences prefs = getSharedPreferences("AuthPrefs", MODE_PRIVATE);
+        if (prefs.contains("local_username_" + checkedUsername)) {
+            tvStatus.setText("Username is already taken");
+            tvStatus.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+            isUsernameAvailable = false;
+            btnNext.setEnabled(false);
+            return;
+        }
+
         if (mDatabase == null) {
             // Offline fallback
             isUsernameAvailable = true;
@@ -466,7 +490,12 @@ public class AuthActivity extends AppCompatActivity {
                             saveUserDataToDatabase(user.getUid());
                         }
                     } else {
-                        Toast.makeText(AuthActivity.this, "Registration failed: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
+                        Log.e(TAG, "Firebase registration failed, registering locally", task.getException());
+                        Toast.makeText(AuthActivity.this, "Firebase unconfigured. Registering locally... 💾", Toast.LENGTH_LONG).show();
+                        
+                        String localUid = "local_" + System.currentTimeMillis();
+                        saveUserLocally(localUid, firstName, lastName, birthday, username, email, password);
+                        launchMainActivity();
                     }
                 });
     }
@@ -493,10 +522,50 @@ public class AuthActivity extends AppCompatActivity {
                         mDatabase.child("usernames").child(username.toLowerCase()).setValue(uid)
                                 .addOnCompleteListener(task1 -> launchMainActivity());
                     } else {
+                        Log.e(TAG, "Database save error", task.getException());
                         Toast.makeText(AuthActivity.this, "Database save error: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
                         // Proceed to main screen anyway so user is not stuck in signup loop
                         launchMainActivity();
                     }
                 });
+    }
+
+    private void saveUserLocally(String uid, String firstName, String lastName, String birthday, String username, String email, String password) {
+        android.content.SharedPreferences prefs = getSharedPreferences("AuthPrefs", MODE_PRIVATE);
+        android.content.SharedPreferences.Editor editor = prefs.edit();
+        
+        editor.putString("local_username_" + username.toLowerCase(), uid);
+        editor.putString("local_email_" + email.toLowerCase(), uid);
+        editor.putString("local_password_" + uid, password);
+        editor.putString("local_firstname_" + uid, firstName);
+        editor.putString("local_lastname_" + uid, lastName);
+        editor.putString("local_birthday_" + uid, birthday);
+        editor.putString("current_user_uid", uid);
+        editor.putString("current_user_username", username);
+        editor.putString("current_user_email", email);
+        
+        editor.apply();
+    }
+
+    private boolean loginLocally(String usernameOrEmail, String enteredPassword) {
+        android.content.SharedPreferences prefs = getSharedPreferences("AuthPrefs", MODE_PRIVATE);
+        String key = usernameOrEmail.toLowerCase();
+        
+        String uid = prefs.getString("local_username_" + key, null);
+        if (uid == null) {
+            uid = prefs.getString("local_email_" + key, null);
+        }
+        
+        if (uid != null) {
+            String correctPassword = prefs.getString("local_password_" + uid, null);
+            if (enteredPassword.equals(correctPassword)) {
+                prefs.edit().putString("current_user_uid", uid)
+                            .putString("current_user_username", prefs.getString("local_username_" + uid, ""))
+                            .putString("current_user_email", prefs.getString("local_email_" + uid, ""))
+                            .apply();
+                return true;
+            }
+        }
+        return false;
     }
 }
