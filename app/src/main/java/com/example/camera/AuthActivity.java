@@ -69,16 +69,11 @@ public class AuthActivity extends AppCompatActivity {
         setContentView(R.layout.activity_auth);
 
         authContainer = findViewById(R.id.auth_container);
-        mAuth = FirebaseAuth.getInstance();
-        
-        try {
-            mDatabase = FirebaseDatabase.getInstance().getReference();
-        } catch (Exception e) {
-            Log.e(TAG, "FirebaseDatabase init error", e);
-        }
+        mAuth = FirebaseSafeHelper.getAuth();
+        mDatabase = FirebaseSafeHelper.getDatabaseReference();
 
         // Check if user is already logged in (Firebase or Local)
-        FirebaseUser currentUser = mAuth.getCurrentUser();
+        FirebaseUser currentUser = mAuth != null ? mAuth.getCurrentUser() : null;
         android.content.SharedPreferences prefs = getSharedPreferences("AuthPrefs", MODE_PRIVATE);
         boolean isLocalLoggedIn = prefs.getString("current_user_uid", null) != null;
         
@@ -168,6 +163,17 @@ public class AuthActivity extends AppCompatActivity {
     }
 
     private void loginWithEmail(String emailInput, String pass) {
+        if (mAuth == null) {
+            Log.e(TAG, "mAuth is null, trying local login");
+            if (loginLocally(emailInput, pass)) {
+                Toast.makeText(this, "Logged in offline mode... 💾", Toast.LENGTH_SHORT).show();
+                launchMainActivity();
+            } else {
+                Toast.makeText(AuthActivity.this, "Authentication failed: Firebase unconfigured and local user not found.", Toast.LENGTH_LONG).show();
+            }
+            return;
+        }
+
         mAuth.signInWithEmailAndPassword(emailInput, pass)
                 .addOnCompleteListener(this, task -> {
                     if (task.isSuccessful()) {
@@ -482,6 +488,14 @@ public class AuthActivity extends AppCompatActivity {
     private void performUserRegistration() {
         Toast.makeText(this, "Creating account...", Toast.LENGTH_SHORT).show();
         
+        if (mAuth == null) {
+            Log.e(TAG, "mAuth is null, registering locally");
+            String localUid = "local_" + System.currentTimeMillis();
+            saveUserLocally(localUid, firstName, lastName, birthday, username, email, password);
+            showFirebaseConfigDialog();
+            return;
+        }
+
         mAuth.createUserWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, task -> {
                     if (task.isSuccessful()) {
@@ -491,13 +505,32 @@ public class AuthActivity extends AppCompatActivity {
                         }
                     } else {
                         Log.e(TAG, "Firebase registration failed, registering locally", task.getException());
-                        Toast.makeText(AuthActivity.this, "Firebase unconfigured. Registering locally... 💾", Toast.LENGTH_LONG).show();
-                        
                         String localUid = "local_" + System.currentTimeMillis();
                         saveUserLocally(localUid, firstName, lastName, birthday, username, email, password);
-                        launchMainActivity();
+                        
+                        String errorMsg = task.getException() != null ? task.getException().getMessage() : "";
+                        if (errorMsg.contains("configuration not found") || errorMsg.contains("Configuration not found") || errorMsg.contains("internal error") || errorMsg.contains("Internal error")) {
+                            showFirebaseConfigDialog();
+                        } else {
+                            Toast.makeText(AuthActivity.this, "Firebase Registration Failed: " + errorMsg + "\nProceeding offline... 💾", Toast.LENGTH_LONG).show();
+                            launchMainActivity();
+                        }
                     }
                 });
+    }
+
+    private void showFirebaseConfigDialog() {
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Firebase Config Needed 🛠️")
+            .setMessage("We detected that Firebase Auth is not fully configured for this app.\n\n" +
+                        "To fix this:\n" +
+                        "1. Open your Firebase Console (project: snaptake-5a82f).\n" +
+                        "2. Go to Build ➔ Authentication ➔ Sign-in method.\n" +
+                        "3. Enable the 'Email/Password' provider.\n\n" +
+                        "For now, we have successfully logged you in via Offline/Local Mode! 💾")
+            .setPositiveButton("Continue Offline", (dialog, which) -> launchMainActivity())
+            .setCancelable(false)
+            .show();
     }
 
     private void saveUserDataToDatabase(String uid) {

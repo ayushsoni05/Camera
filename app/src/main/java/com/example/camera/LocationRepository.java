@@ -38,17 +38,19 @@ public class LocationRepository {
     private ValueEventListener listener;
 
     public LocationRepository() {
-        FirebaseDatabase database = FirebaseDatabase.getInstance();
-        locationsRef = database.getReference("locations");
+        FirebaseDatabase database = FirebaseSafeHelper.getDatabase();
+        locationsRef = database != null ? database.getReference("locations") : null;
     }
 
     public void updateLocation(String userId, Location location) {
+        if (locationsRef == null) return;
         UserLocation loc = new UserLocation(location.getLatitude(), location.getLongitude(), System.currentTimeMillis());
         locationsRef.child(userId).setValue(loc)
                 .addOnFailureListener(e -> Log.e("LocationRepository", "Failed to update location", e));
     }
 
     public void listenForLocations(LocationCallback callback) {
+        if (locationsRef == null) return;
         if (listener != null) {
             locationsRef.removeEventListener(listener);
         }

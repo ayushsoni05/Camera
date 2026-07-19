@@ -61,12 +61,12 @@ public class ChatRepository {
     private String activeFriendId;
 
     public ChatRepository() {
-        FirebaseDatabase database = FirebaseDatabase.getInstance();
-        messagesRef = database.getReference("messages");
+        FirebaseDatabase database = FirebaseSafeHelper.getDatabase();
+        messagesRef = database != null ? database.getReference("messages") : null;
     }
 
     public void sendMessage(String sender, String receiver, String text, String mediaUrl, String mediaType, String replyToId, long mediaDuration) {
-        String key = messagesRef.push().getKey();
+        String key = messagesRef != null ? messagesRef.push().getKey() : null;
         if (key == null) {
             key = "local_" + System.currentTimeMillis();
         }
@@ -78,7 +78,7 @@ public class ChatRepository {
         triggerLocalCallback();
 
         // Push to Firebase in the background
-        if (!key.startsWith("local_")) {
+        if (messagesRef != null && !key.startsWith("local_")) {
             messagesRef.child(key).setValue(msg)
                     .addOnFailureListener(e -> Log.e("ChatRepository", "Failed to send message", e));
         }
@@ -148,26 +148,40 @@ public class ChatRepository {
     }
 
     public void setTypingStatus(String userId, String friendId) {
-        FirebaseDatabase.getInstance().getReference("users").child(userId).child("typingTo").setValue(friendId);
+        DatabaseReference ref = FirebaseSafeHelper.getDatabaseReference();
+        if (ref != null) {
+            ref.child("users").child(userId).child("typingTo").setValue(friendId);
+        }
     }
 
     public void listenToTypingStatus(String friendId, ValueEventListener listener) {
-        FirebaseDatabase.getInstance().getReference("users").child(friendId).child("typingTo").addValueEventListener(listener);
+        DatabaseReference ref = FirebaseSafeHelper.getDatabaseReference();
+        if (ref != null) {
+            ref.child("users").child(friendId).child("typingTo").addValueEventListener(listener);
+        }
     }
 
     public void setUserOnlineStatus(String userId, boolean isOnline) {
-        FirebaseDatabase.getInstance().getReference("users").child(userId).child("online").setValue(isOnline);
-        if (!isOnline) {
-            FirebaseDatabase.getInstance().getReference("users").child(userId).child("lastSeen").setValue(System.currentTimeMillis());
+        DatabaseReference ref = FirebaseSafeHelper.getDatabaseReference();
+        if (ref != null) {
+            ref.child("users").child(userId).child("online").setValue(isOnline);
+            if (!isOnline) {
+                ref.child("users").child(userId).child("lastSeen").setValue(System.currentTimeMillis());
+            }
         }
     }
 
     public void listenToOnlineStatus(String friendId, ValueEventListener listener) {
-        FirebaseDatabase.getInstance().getReference("users").child(friendId).addValueEventListener(listener);
+        DatabaseReference ref = FirebaseSafeHelper.getDatabaseReference();
+        if (ref != null) {
+            ref.child("users").child(friendId).addValueEventListener(listener);
+        }
     }
 
     public String createGroupChat(String groupName, List<String> memberIds) {
-        DatabaseReference groupsRef = FirebaseDatabase.getInstance().getReference("groups");
+        DatabaseReference ref = FirebaseSafeHelper.getDatabaseReference();
+        if (ref == null) return "local_" + System.currentTimeMillis();
+        DatabaseReference groupsRef = ref.child("groups");
         String key = groupsRef.push().getKey();
         if (key != null) {
             java.util.Map<String, Object> groupData = new java.util.HashMap<>();
@@ -179,8 +193,9 @@ public class ChatRepository {
             }
             groupData.put("members", members);
             groupsRef.child(key).setValue(groupData);
+            return key;
         }
-        return key;
+        return null;
     }
 
     public void listenForMessages(String currentUserId, String friendId, ChatCallback callback) {
