@@ -164,12 +164,11 @@
                 android:backgroundTint="@color/snap_yellow"
                 android:elevation="4dp">
                 
-                <ImageView
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:layout_gravity="center"
-                    android:src="@android:drawable/ic_menu_myplaces"
-                    app:tint="@color/black" />
+                <com.example.camera.AvatarView
+                    android:id="@+id/top_bar_avatar_view"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_gravity="center" />
             </FrameLayout>
 
             <!-- Search Button (magnifying glass) next to profile -->
@@ -2446,16 +2445,15 @@
                         android:elevation="6dp"
                         android:layout_marginBottom="16dp">
                         
-                        <ImageView
-                            android:id="@+id/profile_snapcode_image"
-                            android:layout_width="96dp"
-                            android:layout_height="96dp"
-                            android:layout_gravity="center"
-                            android:src="@android:drawable/ic_menu_myplaces"
-                            app:tint="@color/black" />
+                        <com.example.camera.AvatarView
+                            android:id="@+id/profile_avatar_view"
+                            android:layout_width="100dp"
+                            android:layout_height="100dp"
+                            android:layout_gravity="center" />
                     </androidx.cardview.widget.CardView>
 
                     <TextView
+                        android:id="@+id/profile_display_name"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Snaptaker"
@@ -2471,6 +2469,7 @@
                         android:layout_marginTop="4dp">
 
                         <TextView
+                            android:id="@+id/profile_username"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@snaptaker"
@@ -2519,6 +2518,40 @@
                         android:gravity="center"
                         android:layout_marginTop="8dp"
                         android:layout_marginBottom="24dp" />
+
+                    <!-- EDIT AVATAR CARD -->
+                    <androidx.cardview.widget.CardView
+                        android:id="@+id/profile_edit_avatar_card"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        app:cardCornerRadius="16dp"
+                        app:cardBackgroundColor="#20FFFFFF"
+                        android:layout_marginBottom="16dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?android:attr/selectableItemBackground">
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:padding="16dp"
+                            android:gravity="center_vertical">
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Customize My Avatar 🎨"
+                                android:textColor="@color/white"
+                                android:textSize="15sp"
+                                android:textStyle="bold" />
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Customize ➔"
+                                android:textColor="@color/snap_yellow"
+                                android:textSize="13sp" />
+                        </LinearLayout>
+                    </androidx.cardview.widget.CardView>
 
                     <!-- MY STORIES SECTION -->
                     <androidx.cardview.widget.CardView
@@ -4399,6 +4432,329 @@
                     android:gravity="center" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
+    </FrameLayout>
+
+    <!-- ==================== AVATAR CUSTOMIZER OVERLAY ==================== -->
+    <FrameLayout
+        android:id="@+id/profile_avatar_customizer_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#FA0B0C10"
+        android:elevation="120dp"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:paddingTop="36dp">
+
+            <!-- Header -->
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp">
+
+                <ImageButton
+                    android:id="@+id/avatar_customizer_close"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_alignParentStart="true"
+                    android:layout_centerVertical="true"
+                    android:background="@android:color/transparent"
+                    android:src="@android:drawable/ic_menu_revert"
+                    app:tint="@color/white" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    android:text="Customize Bitmoji Avatar"
+                    android:textColor="@color/white"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+            </RelativeLayout>
+
+            <!-- Preview Card -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="140dp"
+                android:layout_height="140dp"
+                android:layout_gravity="center"
+                app:cardCornerRadius="70dp"
+                app:cardBackgroundColor="#20FFFFFF"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="24dp">
+                
+                <com.example.camera.AvatarView
+                    android:id="@+id/avatar_customizer_preview"
+                    android:layout_width="110dp"
+                    android:layout_height="110dp"
+                    android:layout_gravity="center" />
+            </androidx.cardview.widget.CardView>
+
+            <!-- Customizer Scroll Options -->
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:paddingHorizontal="24dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <!-- Skin Tone -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="SKIN TONE"
+                        android:textColor="#80FFFFFF"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp" />
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="24dp"
+                        android:gravity="center_vertical">
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/skin_fair"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            app:cardCornerRadius="18dp"
+                            app:cardBackgroundColor="#FFE0BD"
+                            app:strokeColor="@color/snap_yellow"
+                            app:strokeWidth="3dp"
+                            android:layout_marginEnd="12dp" />
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/skin_tan"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            app:cardCornerRadius="18dp"
+                            app:cardBackgroundColor="#E0AC69"
+                            app:strokeWidth="0dp"
+                            android:layout_marginEnd="12dp" />
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/skin_olive"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            app:cardCornerRadius="18dp"
+                            app:cardBackgroundColor="#C68642"
+                            app:strokeWidth="0dp"
+                            android:layout_marginEnd="12dp" />
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/skin_dark"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            app:cardCornerRadius="18dp"
+                            app:cardBackgroundColor="#8D5524"
+                            app:strokeWidth="0dp" />
+                    </LinearLayout>
+
+                    <!-- Hair Style -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="HAIR STYLE"
+                        android:textColor="#80FFFFFF"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp" />
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="24dp">
+                        <Button
+                            android:id="@+id/hair_bald"
+                            style="@style/Widget.Material3.Button.ElevatedButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Bald"
+                            android:layout_marginEnd="8dp" />
+                        <Button
+                            android:id="@+id/hair_short"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Short"
+                            android:layout_marginEnd="8dp" />
+                        <Button
+                            android:id="@+id/hair_medium"
+                            style="@style/Widget.Material3.Button.ElevatedButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Medium"
+                            android:layout_marginEnd="8dp" />
+                        <Button
+                            android:id="@+id/hair_long"
+                            style="@style/Widget.Material3.Button.ElevatedButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Long" />
+                    </LinearLayout>
+
+                    <!-- Hair Color -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="HAIR COLOR"
+                        android:textColor="#80FFFFFF"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp" />
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="24dp">
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/hair_color_black"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            app:cardCornerRadius="18dp"
+                            app:cardBackgroundColor="#090806"
+                            app:strokeColor="@color/snap_yellow"
+                            app:strokeWidth="3dp"
+                            android:layout_marginEnd="12dp" />
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/hair_color_brown"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            app:cardCornerRadius="18dp"
+                            app:cardBackgroundColor="#3B3028"
+                            app:strokeWidth="0dp"
+                            android:layout_marginEnd="12dp" />
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/hair_color_blonde"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            app:cardCornerRadius="18dp"
+                            app:cardBackgroundColor="#D9B48F"
+                            app:strokeWidth="0dp"
+                            android:layout_marginEnd="12dp" />
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/hair_color_red"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            app:cardCornerRadius="18dp"
+                            app:cardBackgroundColor="#B55239"
+                            app:strokeWidth="0dp" />
+                    </LinearLayout>
+
+                    <!-- Outfit Color -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="OUTFIT COLOR"
+                        android:textColor="#80FFFFFF"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp" />
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="24dp">
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/outfit_color_indigo"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            app:cardCornerRadius="18dp"
+                            app:cardBackgroundColor="#6366F1"
+                            app:strokeColor="@color/snap_yellow"
+                            app:strokeWidth="3dp"
+                            android:layout_marginEnd="12dp" />
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/outfit_color_blue"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            app:cardCornerRadius="18dp"
+                            app:cardBackgroundColor="#00A4FF"
+                            app:strokeWidth="0dp"
+                            android:layout_marginEnd="12dp" />
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/outfit_color_green"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            app:cardCornerRadius="18dp"
+                            app:cardBackgroundColor="#34C759"
+                            app:strokeWidth="0dp"
+                            android:layout_marginEnd="12dp" />
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/outfit_color_pink"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            app:cardCornerRadius="18dp"
+                            app:cardBackgroundColor="#FF2D55"
+                            app:strokeWidth="0dp" />
+                    </LinearLayout>
+
+                    <!-- Expression -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="EXPRESSION"
+                        android:textColor="#80FFFFFF"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp" />
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="32dp">
+                        <Button
+                            android:id="@+id/expr_happy"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Happy"
+                            android:layout_marginEnd="8dp" />
+                        <Button
+                            android:id="@+id/expr_cool"
+                            style="@style/Widget.Material3.Button.ElevatedButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Cool"
+                            android:layout_marginEnd="8dp" />
+                        <Button
+                            android:id="@+id/expr_wink"
+                            style="@style/Widget.Material3.Button.ElevatedButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Wink"
+                            android:layout_marginEnd="8dp" />
+                        <Button
+                            android:id="@+id/expr_surprised"
+                            style="@style/Widget.Material3.Button.ElevatedButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Surprise" />
+                    </LinearLayout>
+
+                </LinearLayout>
+            </ScrollView>
+
+            <!-- Save Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/avatar_customizer_save_btn"
+                android:layout_width="match_parent"
+                android:layout_height="54dp"
+                android:layout_margin="24dp"
+                android:text="Save Avatar"
+                android:textColor="#111119"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                app:cornerRadius="27dp"
+                android:backgroundTint="@color/snap_yellow"
+                android:elevation="4dp" />
+        </LinearLayout>
     </FrameLayout>
 
 </FrameLayout>

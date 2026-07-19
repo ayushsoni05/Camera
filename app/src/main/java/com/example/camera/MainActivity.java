@@ -221,6 +221,58 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
     // Friends list for Profile and Search
     private final List<String> profileFriendsList = new ArrayList<>();
 
+    // Avatar / Bitmoji State
+    private AvatarState currentUserAvatarState;
+    private final java.util.Map<String, AvatarState> friendAvatarStates = new java.util.HashMap<>();
+    
+    private void initializeFriendAvatars() {
+        friendAvatarStates.put("Alex", new AvatarState("#FFE0BD", "short", "#090806", "#FF9500", "cool"));
+        friendAvatarStates.put("Jessica", new AvatarState("#FFE0BD", "long", "#D9B48F", "#FF2D55", "happy"));
+        friendAvatarStates.put("Sam", new AvatarState("#E0AC69", "medium", "#3B3028", "#34C759", "happy"));
+        friendAvatarStates.put("Sarah", new AvatarState("#FFE0BD", "long", "#090806", "#007AFF", "wink"));
+        friendAvatarStates.put("David", new AvatarState("#FFE0BD", "short", "#D9B48F", "#AF52DE", "happy"));
+        friendAvatarStates.put("Emma", new AvatarState("#FFE0BD", "medium", "#B55239", "#E0A0FF", "happy"));
+    }
+
+    private void loadCurrentUserAvatar() {
+        android.content.SharedPreferences prefs = getSharedPreferences("AuthPrefs", MODE_PRIVATE);
+        String skin = prefs.getString("avatar_skin", "#FFE0BD");
+        String style = prefs.getString("avatar_hair_style", "short");
+        String color = prefs.getString("avatar_hair_color", "#090806");
+        String outfit = prefs.getString("avatar_outfit", "#6366F1");
+        String expr = prefs.getString("avatar_expr", "happy");
+        currentUserAvatarState = new AvatarState(skin, style, color, outfit, expr);
+    }
+
+    private void saveCurrentUserAvatar(AvatarState state) {
+        android.content.SharedPreferences prefs = getSharedPreferences("AuthPrefs", MODE_PRIVATE);
+        prefs.edit()
+            .putString("avatar_skin", state.skinColor)
+            .putString("avatar_hair_style", state.hairStyle)
+            .putString("avatar_hair_color", state.hairColor)
+            .putString("avatar_outfit", state.outfitColor)
+            .putString("avatar_expr", state.expression)
+            .apply();
+            
+        // Save to Firebase in background if online/configured
+        try {
+            com.google.firebase.auth.FirebaseAuth auth = com.google.firebase.auth.FirebaseAuth.getInstance();
+            com.google.firebase.auth.FirebaseUser user = auth.getCurrentUser();
+            if (user != null) {
+                com.google.firebase.database.DatabaseReference db = com.google.firebase.database.FirebaseDatabase.getInstance().getReference();
+                java.util.Map<String, Object> avatarMap = new java.util.HashMap<>();
+                avatarMap.put("skinColor", state.skinColor);
+                avatarMap.put("hairStyle", state.hairStyle);
+                avatarMap.put("hairColor", state.hairColor);
+                avatarMap.put("outfitColor", state.outfitColor);
+                avatarMap.put("expression", state.expression);
+                db.child("users").child(user.getUid()).child("avatar").setValue(avatarMap);
+            }
+        } catch (Exception e) {
+            android.util.Log.e("MainActivity", "Firebase database save bypassed/unavailable", e);
+        }
+    }
+
     // State variables for Camera Page features
     private boolean isBurstModeActive = false;
     private int selectedAspectMode = 0; // 0 = 16:9, 1 = 4:3, 2 = 1:1
@@ -358,6 +410,10 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         }
         
         setContentView(R.layout.activity_main);
+
+        // Load Avatar Configurations
+        loadCurrentUserAvatar();
+        initializeFriendAvatars();
 
         // Initialize combined lenses list with default items
         combinedLensesList.clear();
@@ -812,10 +868,16 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
     private void refreshMapUI() {
         if (mapWebView == null) return;
         mapWebView.post(() -> {
-            mapWebView.loadUrl("javascript:updateUserLocation(" + lastUserLat + ", " + lastUserLng + ", " + isGhostModeEnabled + ")");
+            String userSvg = AvatarSvgGenerator.generateSvg(currentUserAvatarState);
+            mapWebView.loadUrl("javascript:updateUserLocation(" + lastUserLat + ", " + lastUserLng + ", " + isGhostModeEnabled + ", '" + userSvg + "')");
             
             for (MockFriendLocation f : mapFriends) {
-                mapWebView.loadUrl("javascript:updateFriendLocation('" + f.name + "', " + f.currentLat + ", " + f.currentLng + ", '" + f.emoji + "')");
+                AvatarState friendState = friendAvatarStates.get(f.name);
+                if (friendState == null) {
+                    friendState = new AvatarState("#FFE0BD", "short", "#090806", "#6366F1", "happy");
+                }
+                String friendSvg = AvatarSvgGenerator.generateSvg(friendState);
+                mapWebView.loadUrl("javascript:updateFriendLocation('" + f.name + "', " + f.currentLat + ", " + f.currentLng + ", '" + friendSvg + "')");
             }
             
             for (MockHotspot h : mapHotspots) {
@@ -845,9 +907,15 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             lp.setMargins(0, 0, 16, 0);
             item.setLayoutParams(lp);
 
-            TextView avatar = new TextView(this);
-            avatar.setText(f.emoji);
-            avatar.setTextSize(24);
+            AvatarView avatar = new AvatarView(this);
+            LinearLayout.LayoutParams avatarLp = new LinearLayout.LayoutParams(90, 90);
+            avatar.setLayoutParams(avatarLp);
+            
+            AvatarState friendState = friendAvatarStates.get(f.name);
+            if (friendState == null) {
+                friendState = new AvatarState("#FFE0BD", "short", "#090806", "#6366F1", "happy");
+            }
+            avatar.setAvatarState(friendState);
             item.addView(avatar);
 
             TextView name = new TextView(this);
@@ -3165,9 +3233,28 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                     color = "#E0A0FF";
                 }
 
-                if (avatarText != null) avatarText.setText(emoji);
-                if (avatarBg != null) {
-                    avatarBg.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor(color)));
+                AvatarView storyAvatarView = item.findViewById(R.id.story_avatar_view);
+                if (f.equals("My Story")) {
+                    if (storyAvatarView != null) {
+                        storyAvatarView.setVisibility(View.VISIBLE);
+                        storyAvatarView.setAvatarState(currentUserAvatarState);
+                    }
+                    if (avatarText != null) avatarText.setVisibility(View.GONE);
+                } else if (friendAvatarStates.containsKey(f)) {
+                    if (storyAvatarView != null) {
+                        storyAvatarView.setVisibility(View.VISIBLE);
+                        storyAvatarView.setAvatarState(friendAvatarStates.get(f));
+                    }
+                    if (avatarText != null) avatarText.setVisibility(View.GONE);
+                } else {
+                    if (storyAvatarView != null) storyAvatarView.setVisibility(View.GONE);
+                    if (avatarText != null) {
+                        avatarText.setVisibility(View.VISIBLE);
+                        avatarText.setText(emoji);
+                    }
+                    if (avatarBg != null) {
+                        avatarBg.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor(color)));
+                    }
                 }
 
                 // Show gradient ring only if the friend has active stories
@@ -3300,18 +3387,42 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             backBtn.setOnClickListener(v -> container.setVisibility(View.GONE));
         }
 
-        // Initialize snapcode
-        ImageView snapcodeImg = findViewById(R.id.profile_snapcode_image);
+        // Load dynamic profile name and username from SharedPreferences
+        android.content.SharedPreferences prefs = getSharedPreferences("AuthPrefs", MODE_PRIVATE);
+        String savedUid = prefs.getString("current_user_uid", "");
+        String savedUsername = prefs.getString("current_user_username", "snaptaker");
+        String savedFirstName = prefs.getString("local_firstname_" + savedUid, "Snaptaker");
+        String savedLastName = prefs.getString("local_lastname_" + savedUid, "");
+        
+        TextView displayNameView = findViewById(R.id.profile_display_name);
+        TextView usernameView = findViewById(R.id.profile_username);
+        
+        if (displayNameView != null) {
+            displayNameView.setText(savedFirstName + " " + savedLastName);
+        }
+        if (usernameView != null) {
+            usernameView.setText("@" + savedUsername);
+        }
+
+        // Initialize snapcode / avatar preview inside Snapcode card
+        AvatarView profileAvatar = findViewById(R.id.profile_avatar_view);
         View snapcodeCard = findViewById(R.id.profile_snapcode_card);
-        if (snapcodeImg != null && snapcodeCard != null) {
-            Bitmap sc = generateSnapcode("snaptaker");
-            snapcodeImg.setImageBitmap(sc);
+        if (profileAvatar != null) {
+            profileAvatar.setAvatarState(currentUserAvatarState);
+        }
+        if (snapcodeCard != null) {
             snapcodeCard.setOnClickListener(v -> {
                 SnapAlertHelper.showDialog(this, "Your Snapcode 👻", 
-                    "Scan this code to add @snaptaker on Snaptake!", 
+                    "Scan this code to add @" + savedUsername + " on Snaptake!", 
                     "Share Code", () -> showToast("Snapcode shared! 📲"), 
                     "Close", null);
             });
+        }
+
+        // Edit avatar card click listener
+        View editAvatarBtn = findViewById(R.id.profile_edit_avatar_card);
+        if (editAvatarBtn != null) {
+            editAvatarBtn.setOnClickListener(v -> showAvatarCustomizerOverlay());
         }
 
         // Settings Gear Click
@@ -3526,6 +3637,163 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             profileFriendsList.add("Emma");
         }
         refreshProfileFriendsList();
+        
+        // Update all avatar views initially
+        updateAvatarViews();
+    }
+
+    private void updateAvatarViews() {
+        AvatarView topBarAvatar = findViewById(R.id.top_bar_avatar_view);
+        if (topBarAvatar != null) {
+            topBarAvatar.setAvatarState(currentUserAvatarState);
+        }
+        AvatarView profileAvatar = findViewById(R.id.profile_avatar_view);
+        if (profileAvatar != null) {
+            profileAvatar.setAvatarState(currentUserAvatarState);
+        }
+        setupStoriesSystem();
+        refreshMapUI();
+    }
+
+    // Avatar customizer selected properties
+    private String selectedSkinColor = "#FFE0BD";
+    private String selectedHairStyle = "short";
+    private String selectedHairColor = "#090806";
+    private String selectedOutfitColor = "#6366F1";
+    private String selectedExpression = "happy";
+
+    private void showAvatarCustomizerOverlay() {
+        View customizer = findViewById(R.id.profile_avatar_customizer_overlay);
+        if (customizer == null) return;
+        
+        customizer.setVisibility(View.VISIBLE);
+        
+        // Sync selected properties with current state
+        selectedSkinColor = currentUserAvatarState.skinColor;
+        selectedHairStyle = currentUserAvatarState.hairStyle;
+        selectedHairColor = currentUserAvatarState.hairColor;
+        selectedOutfitColor = currentUserAvatarState.outfitColor;
+        selectedExpression = currentUserAvatarState.expression;
+        
+        AvatarView preview = findViewById(R.id.avatar_customizer_preview);
+        if (preview != null) {
+            preview.setAvatarState(currentUserAvatarState);
+        }
+        
+        // Highlight current selections
+        updateCustomizerUIHighlights();
+        
+        // Set up close / back click
+        View closeBtn = findViewById(R.id.avatar_customizer_close);
+        if (closeBtn != null) {
+            closeBtn.setOnClickListener(v -> customizer.setVisibility(View.GONE));
+        }
+        
+        // Skin Tone click listeners
+        findViewById(R.id.skin_fair).setOnClickListener(v -> { selectedSkinColor = "#FFE0BD"; updateCustomizerUIHighlights(); });
+        findViewById(R.id.skin_tan).setOnClickListener(v -> { selectedSkinColor = "#E0AC69"; updateCustomizerUIHighlights(); });
+        findViewById(R.id.skin_olive).setOnClickListener(v -> { selectedSkinColor = "#C68642"; updateCustomizerUIHighlights(); });
+        findViewById(R.id.skin_dark).setOnClickListener(v -> { selectedSkinColor = "#8D5524"; updateCustomizerUIHighlights(); });
+        
+        // Hair style click listeners
+        findViewById(R.id.hair_bald).setOnClickListener(v -> { selectedHairStyle = "bald"; updateCustomizerUIHighlights(); });
+        findViewById(R.id.hair_short).setOnClickListener(v -> { selectedHairStyle = "short"; updateCustomizerUIHighlights(); });
+        findViewById(R.id.hair_medium).setOnClickListener(v -> { selectedHairStyle = "medium"; updateCustomizerUIHighlights(); });
+        findViewById(R.id.hair_long).setOnClickListener(v -> { selectedHairStyle = "long"; updateCustomizerUIHighlights(); });
+        
+        // Hair color click listeners
+        findViewById(R.id.hair_color_black).setOnClickListener(v -> { selectedHairColor = "#090806"; updateCustomizerUIHighlights(); });
+        findViewById(R.id.hair_color_brown).setOnClickListener(v -> { selectedHairColor = "#3B3028"; updateCustomizerUIHighlights(); });
+        findViewById(R.id.hair_color_blonde).setOnClickListener(v -> { selectedHairColor = "#D9B48F"; updateCustomizerUIHighlights(); });
+        findViewById(R.id.hair_color_red).setOnClickListener(v -> { selectedHairColor = "#B55239"; updateCustomizerUIHighlights(); });
+        
+        // Outfit color click listeners
+        findViewById(R.id.outfit_color_indigo).setOnClickListener(v -> { selectedOutfitColor = "#6366F1"; updateCustomizerUIHighlights(); });
+        findViewById(R.id.outfit_color_blue).setOnClickListener(v -> { selectedOutfitColor = "#00A4FF"; updateCustomizerUIHighlights(); });
+        findViewById(R.id.outfit_color_green).setOnClickListener(v -> { selectedOutfitColor = "#34C759"; updateCustomizerUIHighlights(); });
+        findViewById(R.id.outfit_color_pink).setOnClickListener(v -> { selectedOutfitColor = "#FF2D55"; updateCustomizerUIHighlights(); });
+        
+        // Expression click listeners
+        findViewById(R.id.expr_happy).setOnClickListener(v -> { selectedExpression = "happy"; updateCustomizerUIHighlights(); });
+        findViewById(R.id.expr_cool).setOnClickListener(v -> { selectedExpression = "cool"; updateCustomizerUIHighlights(); });
+        findViewById(R.id.expr_wink).setOnClickListener(v -> { selectedExpression = "wink"; updateCustomizerUIHighlights(); });
+        findViewById(R.id.expr_surprised).setOnClickListener(v -> { selectedExpression = "surprised"; updateCustomizerUIHighlights(); });
+        
+        // Save button listener
+        View saveBtn = findViewById(R.id.avatar_customizer_save_btn);
+        if (saveBtn != null) {
+            saveBtn.setOnClickListener(v -> {
+                currentUserAvatarState.skinColor = selectedSkinColor;
+                currentUserAvatarState.hairStyle = selectedHairStyle;
+                currentUserAvatarState.hairColor = selectedHairColor;
+                currentUserAvatarState.outfitColor = selectedOutfitColor;
+                currentUserAvatarState.expression = selectedExpression;
+                
+                saveCurrentUserAvatar(currentUserAvatarState);
+                updateAvatarViews();
+                
+                customizer.setVisibility(View.GONE);
+                Toast.makeText(this, "Avatar saved successfully! 🎨", Toast.LENGTH_SHORT).show();
+            });
+        }
+    }
+
+    private void updateCustomizerUIHighlights() {
+        // Update live preview AvatarView
+        AvatarView preview = findViewById(R.id.avatar_customizer_preview);
+        if (preview != null) {
+            preview.setAvatarState(selectedSkinColor, selectedHairStyle, selectedHairColor, selectedOutfitColor, selectedExpression);
+        }
+        
+        // Reset and highlight card strokes
+        highlightCardBorder(findViewById(R.id.skin_fair), selectedSkinColor.equalsIgnoreCase("#FFE0BD"));
+        highlightCardBorder(findViewById(R.id.skin_tan), selectedSkinColor.equalsIgnoreCase("#E0AC69"));
+        highlightCardBorder(findViewById(R.id.skin_olive), selectedSkinColor.equalsIgnoreCase("#C68642"));
+        highlightCardBorder(findViewById(R.id.skin_dark), selectedSkinColor.equalsIgnoreCase("#8D5524"));
+        
+        highlightCardBorder(findViewById(R.id.hair_color_black), selectedHairColor.equalsIgnoreCase("#090806"));
+        highlightCardBorder(findViewById(R.id.hair_color_brown), selectedHairColor.equalsIgnoreCase("#3B3028"));
+        highlightCardBorder(findViewById(R.id.hair_color_blonde), selectedHairColor.equalsIgnoreCase("#D9B48F"));
+        highlightCardBorder(findViewById(R.id.hair_color_red), selectedHairColor.equalsIgnoreCase("#B55239"));
+        
+        highlightCardBorder(findViewById(R.id.outfit_color_indigo), selectedOutfitColor.equalsIgnoreCase("#6366F1"));
+        highlightCardBorder(findViewById(R.id.outfit_color_blue), selectedOutfitColor.equalsIgnoreCase("#00A4FF"));
+        highlightCardBorder(findViewById(R.id.outfit_color_green), selectedOutfitColor.equalsIgnoreCase("#34C759"));
+        highlightCardBorder(findViewById(R.id.outfit_color_pink), selectedOutfitColor.equalsIgnoreCase("#FF2D55"));
+        
+        // Highlight button styles
+        highlightButtonStyle((Button) findViewById(R.id.hair_bald), selectedHairStyle.equalsIgnoreCase("bald"));
+        highlightButtonStyle((Button) findViewById(R.id.hair_short), selectedHairStyle.equalsIgnoreCase("short"));
+        highlightButtonStyle((Button) findViewById(R.id.hair_medium), selectedHairStyle.equalsIgnoreCase("medium"));
+        highlightButtonStyle((Button) findViewById(R.id.hair_long), selectedHairStyle.equalsIgnoreCase("long"));
+        
+        highlightButtonStyle((Button) findViewById(R.id.expr_happy), selectedExpression.equalsIgnoreCase("happy"));
+        highlightButtonStyle((Button) findViewById(R.id.expr_cool), selectedExpression.equalsIgnoreCase("cool"));
+        highlightButtonStyle((Button) findViewById(R.id.expr_wink), selectedExpression.equalsIgnoreCase("wink"));
+        highlightButtonStyle((Button) findViewById(R.id.expr_surprised), selectedExpression.equalsIgnoreCase("surprised"));
+    }
+
+    private void highlightCardBorder(View cardView, boolean highlight) {
+        if (cardView instanceof com.google.android.material.card.MaterialCardView) {
+            com.google.android.material.card.MaterialCardView card = (com.google.android.material.card.MaterialCardView) cardView;
+            if (highlight) {
+                card.setStrokeColor(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#FFFC00")));
+                card.setStrokeWidth(6);
+            } else {
+                card.setStrokeWidth(0);
+            }
+        }
+    }
+
+    private void highlightButtonStyle(Button button, boolean active) {
+        if (button == null) return;
+        if (active) {
+            button.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#FFFC00")));
+            button.setTextColor(android.graphics.Color.parseColor("#111119"));
+        } else {
+            button.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#20FFFFFF")));
+            button.setTextColor(android.graphics.Color.WHITE);
+        }
     }
 
     private void refreshProfileMemoriesGrid() {

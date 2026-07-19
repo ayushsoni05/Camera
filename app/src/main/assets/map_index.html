@@ -135,22 +135,22 @@
         initMap();
 
         // 1. Update Current User Marker
-        function updateUserLocation(lat, lng, isGhost) {
+        function updateUserLocation(lat, lng, isGhost, avatarSvg) {
             if (!map) {
-                setTimeout(function() { updateUserLocation(lat, lng, isGhost); }, 200);
+                setTimeout(function() { updateUserLocation(lat, lng, isGhost, avatarSvg); }, 200);
                 return;
             }
             var latlng = [lat, lng];
             map.panTo(latlng);
             
             var markerClass = isGhost ? 'ghost-marker' : 'user-marker';
-            var avatarSvg = isGhost 
+            var htmlContent = isGhost 
                 ? '<svg viewBox="0 0 100 100" width="24" height="24" style="margin-top:2px;"><path fill="#FFFFFF" stroke="#000" stroke-width="5" d="M50,15 C32,15 22,25 22,43 C22,48 24,53 25,56 C26,59 23,62 20,65 C17,68 18,72 23,73 C26,73.5 28,71 31,70 C33,69.5 35,71 36,73 C37,76 40,78 45,78 C48,78 50,76.5 52,76.5 C54,76.5 56,78 59,78 C64,78 67,76 68,73 C69,71 71,69.5 73,70 C76,71 78,73.5 81,73 C86,72 87,68 84,65 C81,62 78,59 79,56 C80,53 82,48 82,43 C82,25 72,15 50,15 Z"/></svg>'
-                : '<svg viewBox="0 0 100 100" width="24" height="24" style="margin-top:1px;"><circle cx="50" cy="50" r="45" fill="#FFE0B2" stroke="#000" stroke-width="4"/><path d="M25,35 Q50,15 75,35" fill="none" stroke="#5D4037" stroke-width="10" stroke-linecap="round"/><rect x="25" y="42" width="20" height="8" rx="3" fill="#000"/><rect x="55" y="42" width="20" height="8" rx="3" fill="#000"/><line x1="45" y1="46" x2="55" y2="46" stroke="#000" stroke-width="4"/><path d="M40,65 Q50,75 60,65" fill="none" stroke="#FF5252" stroke-width="5" stroke-linecap="round"/></svg>';
+                : avatarSvg;
             
             var userIcon = L.divIcon({
                 className: markerClass,
-                html: avatarSvg,
+                html: htmlContent,
                 iconSize: [32, 32],
                 iconAnchor: [16, 16]
             });
@@ -169,14 +169,12 @@
         }
 
         // 2. Update Friend Marker
-        function updateFriendLocation(name, lat, lng, emoji) {
+        function updateFriendLocation(name, lat, lng, avatarSvg) {
             if (!map) {
-                setTimeout(function() { updateFriendLocation(name, lat, lng, emoji); }, 200);
+                setTimeout(function() { updateFriendLocation(name, lat, lng, avatarSvg); }, 200);
                 return;
             }
             var latlng = [lat, lng];
-            
-            var avatarSvg = '<svg viewBox="0 0 100 100" width="22" height="22" style="margin-top:1px;"><circle cx="50" cy="50" r="45" fill="#FFE0B2" stroke="#000" stroke-width="4"/><path d="M25,35 Q50,15 75,35" fill="none" stroke="#5D4037" stroke-width="10" stroke-linecap="round"/><rect x="25" y="42" width="20" height="8" rx="3" fill="#000"/><rect x="55" y="42" width="20" height="8" rx="3" fill="#000"/><line x1="45" y1="46" x2="55" y2="46" stroke="#000" stroke-width="4"/><path d="M40,65 Q50,75 60,65" fill="none" stroke="#FF5252" stroke-width="5" stroke-linecap="round"/></svg>';
             
             var friendIcon = L.divIcon({
                 className: 'friend-marker',
@@ -187,6 +185,7 @@
 
             if (friendMarkers[name]) {
                 friendMarkers[name].setLatLng(latlng);
+                friendMarkers[name].setIcon(friendIcon);
             } else {
                 var marker = L.marker(latlng, {icon: friendIcon}).addTo(map);
                 marker.on('click', function() {

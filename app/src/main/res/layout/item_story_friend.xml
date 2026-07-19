@@ -38,6 +38,13 @@
                     android:text="👻"
                     android:textSize="22sp" />
 
+                <com.example.camera.AvatarView
+                    android:id="@+id/story_avatar_view"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_gravity="center"
+                    android:visibility="gone" />
+
             </FrameLayout>
 
         </FrameLayout>
