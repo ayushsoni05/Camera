@@ -221,6 +221,18 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
     // Friends list for Profile and Search
     private final List<String> profileFriendsList = new ArrayList<>();
 
+    // Calling System State & Repository
+    private CallRepository callRepo;
+    private String activeCallId = null;
+    private String activeCallFriendName = null;
+    private boolean isCallVideoActive = false;
+    private boolean isCallMuted = false;
+    private boolean isCallSpeakerOn = true;
+    private boolean isFrontCameraInCall = true;
+    private long callStartTimeMs = 0;
+    private final Handler callTimerHandler = new Handler(Looper.getMainLooper());
+    private Runnable callTimerRunnable;
+
     // Avatar / Bitmoji State
     private AvatarState currentUserAvatarState;
     private final java.util.Map<String, AvatarState> friendAvatarStates = new java.util.HashMap<>();
@@ -1770,6 +1782,17 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                     searchContainer.setVisibility(searchContainer.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
                 }
             });
+        }
+
+        // Wire Up Phone Call and Video Call Header Buttons
+        View btnCall = findViewById(R.id.chat_btn_call);
+        if (btnCall != null) {
+            btnCall.setOnClickListener(v -> initiateCall(friendId, friendName, false));
+        }
+
+        View btnVideoCall = findViewById(R.id.chat_btn_video_call);
+        if (btnVideoCall != null) {
+            btnVideoCall.setOnClickListener(v -> initiateCall(friendId, friendName, true));
         }
 
         // Check if group chat session
@@ -3380,6 +3403,225 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         return bmp;
     }
 
+    private void setupCallingSystem() {
+        if (callRepo == null) callRepo = new CallRepository();
+        
+        // Listen for incoming calls
+        callRepo.listenForIncomingCalls(currentTestingUserId, session -> {
+            runOnUiThread(() -> showIncomingCallDialog(session));
+        });
+        
+        // Setup Call Action Toolbar Listeners
+        View muteBtn = findViewById(R.id.call_btn_mute);
+        if (muteBtn != null) {
+            muteBtn.setOnClickListener(v -> {
+                isCallMuted = !isCallMuted;
+                muteBtn.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+                        android.graphics.Color.parseColor(isCallMuted ? "#FF2D55" : "#33FFFFFF")));
+                showToast(isCallMuted ? "Microphone Muted 🔇" : "Microphone Active 🎙️");
+            });
+        }
+        
+        View speakerBtn = findViewById(R.id.call_btn_speaker);
+        if (speakerBtn != null) {
+            speakerBtn.setOnClickListener(v -> {
+                isCallSpeakerOn = !isCallSpeakerOn;
+                speakerBtn.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+                        android.graphics.Color.parseColor(isCallSpeakerOn ? "#FFFC00" : "#33FFFFFF")));
+                ((com.google.android.material.button.MaterialButton) speakerBtn).setIconTint(
+                        android.content.res.ColorStateList.valueOf(
+                                android.graphics.Color.parseColor(isCallSpeakerOn ? "#111119" : "#FFFFFF")));
+                showToast(isCallSpeakerOn ? "Speakerphone On 🔊" : "Earpiece Audio 🎧");
+            });
+        }
+        
+        View flipCameraBtn = findViewById(R.id.call_btn_flip_camera);
+        if (flipCameraBtn != null) {
+            flipCameraBtn.setOnClickListener(v -> {
+                isFrontCameraInCall = !isFrontCameraInCall;
+                showToast(isFrontCameraInCall ? "Front Camera 📷" : "Rear Camera 📷");
+            });
+        }
+        
+        View toggleVideoBtn = findViewById(R.id.call_btn_toggle_video);
+        View videoPreview = findViewById(R.id.call_video_preview);
+        View avatarContainer = findViewById(R.id.call_avatar_container);
+        if (toggleVideoBtn != null) {
+            toggleVideoBtn.setOnClickListener(v -> {
+                isCallVideoActive = !isCallVideoActive;
+                if (videoPreview != null) videoPreview.setVisibility(isCallVideoActive ? View.VISIBLE : View.GONE);
+                if (avatarContainer != null) avatarContainer.setVisibility(isCallVideoActive ? View.GONE : View.VISIBLE);
+                showToast(isCallVideoActive ? "Video Enabled 📹" : "Audio Mode 📞");
+            });
+        }
+        
+        View endCallBtn = findViewById(R.id.call_btn_end);
+        if (endCallBtn != null) {
+            endCallBtn.setOnClickListener(v -> terminateActiveCall("ENDED"));
+        }
+    }
+
+    private void initiateCall(String friendId, String friendName, boolean isVideo) {
+        if (callRepo == null) callRepo = new CallRepository();
+        
+        activeCallFriendName = friendName;
+        isCallVideoActive = isVideo;
+        isCallMuted = false;
+        isCallSpeakerOn = true;
+        
+        activeCallId = callRepo.initiateCall(currentTestingUserId, currentTestingUserId, friendId, friendName, isVideo ? "VIDEO" : "AUDIO");
+        
+        openActiveCallOverlay(friendName, isVideo);
+        
+        // Listen for call status updates
+        callRepo.listenForCall(activeCallId, session -> {
+            if (session == null) return;
+            runOnUiThread(() -> {
+                if ("CONNECTED".equals(session.status)) {
+                    startCallTimer();
+                } else if ("DECLINED".equals(session.status)) {
+                    showToast("Call Declined by " + friendName);
+                    terminateActiveCall("DECLINED");
+                } else if ("ENDED".equals(session.status)) {
+                    showToast("Call Ended");
+                    terminateActiveCall("ENDED");
+                }
+            });
+        });
+        
+        // Auto-connect after 2.5 seconds for instant responsiveness in demo/testing
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            if (activeCallId != null && callRepo != null) {
+                callRepo.acceptCall(activeCallId);
+            }
+        }, 2500);
+    }
+
+    private void openActiveCallOverlay(String friendName, boolean isVideo) {
+        View overlay = findViewById(R.id.call_active_overlay_container);
+        if (overlay == null) return;
+        
+        overlay.setVisibility(View.VISIBLE);
+        
+        TextView nameView = findViewById(R.id.call_friend_name);
+        TextView timerView = findViewById(R.id.call_duration_timer);
+        TextView typeHeader = findViewById(R.id.call_type_header);
+        AvatarView avatar = findViewById(R.id.call_bitmoji_avatar);
+        View videoPreview = findViewById(R.id.call_video_preview);
+        View avatarContainer = findViewById(R.id.call_avatar_container);
+        
+        if (nameView != null) nameView.setText(friendName);
+        if (timerView != null) timerView.setText("Calling...");
+        if (typeHeader != null) typeHeader.setText(isVideo ? "SNAPCHAT VIDEO CALL 📹" : "SNAPCHAT AUDIO CALL 📞");
+        
+        if (avatar != null) {
+            AvatarState state = friendAvatarStates.get(friendName);
+            if (state == null) state = new AvatarState();
+            avatar.setAvatarState(state);
+        }
+        
+        if (videoPreview != null) videoPreview.setVisibility(isVideo ? View.VISIBLE : View.GONE);
+        if (avatarContainer != null) avatarContainer.setVisibility(isVideo ? View.GONE : View.VISIBLE);
+    }
+
+    private void startCallTimer() {
+        TextView timerView = findViewById(R.id.call_duration_timer);
+        callStartTimeMs = System.currentTimeMillis();
+        
+        if (callTimerRunnable != null) callTimerHandler.removeCallbacks(callTimerRunnable);
+        
+        callTimerRunnable = new Runnable() {
+            @Override
+            public void run() {
+                long elapsedSec = (System.currentTimeMillis() - callStartTimeMs) / 1000;
+                long minutes = elapsedSec / 60;
+                long seconds = elapsedSec % 60;
+                if (timerView != null) {
+                    timerView.setText(String.format(java.util.Locale.US, "%02d:%02d", minutes, seconds));
+                }
+                callTimerHandler.postDelayed(this, 1000);
+            }
+        };
+        callTimerHandler.post(callTimerRunnable);
+    }
+
+    private void terminateActiveCall(String finalStatus) {
+        if (callTimerRunnable != null) {
+            callTimerHandler.removeCallbacks(callTimerRunnable);
+            callTimerRunnable = null;
+        }
+        
+        long durationSec = callStartTimeMs > 0 ? (System.currentTimeMillis() - callStartTimeMs) / 1000 : 0;
+        
+        if (activeCallId != null && callRepo != null) {
+            callRepo.endCall(activeCallId, durationSec);
+        }
+        
+        View overlay = findViewById(R.id.call_active_overlay_container);
+        if (overlay != null) overlay.setVisibility(View.GONE);
+        
+        // Insert Call Summary into Chat thread
+        if (activeChatFriend != null && !activeChatFriend.isEmpty()) {
+            if (chatRepo == null) chatRepo = new ChatRepository();
+            String icon = isCallVideoActive ? "📹" : "📞";
+            String modeName = isCallVideoActive ? "Video Call" : "Audio Call";
+            String logText;
+            if ("DECLINED".equals(finalStatus)) {
+                logText = "📵 Missed " + modeName;
+            } else {
+                long mins = durationSec / 60;
+                long secs = durationSec % 60;
+                String durStr = mins > 0 ? String.format(java.util.Locale.US, "%d min %d sec", mins, secs) : String.format(java.util.Locale.US, "%d sec", secs);
+                logText = icon + " " + modeName + " Ended (" + durStr + ")";
+            }
+            chatRepo.sendMessage(currentTestingUserId, activeChatFriend, logText, null, "text", null);
+        }
+        
+        activeCallId = null;
+        activeCallFriendName = null;
+        callStartTimeMs = 0;
+    }
+
+    private void showIncomingCallDialog(CallRepository.CallSession session) {
+        View incomingOverlay = findViewById(R.id.call_incoming_overlay_container);
+        if (incomingOverlay == null) return;
+        
+        incomingOverlay.setVisibility(View.VISIBLE);
+        
+        TextView callerNameView = findViewById(R.id.incoming_caller_name);
+        TextView callTypeView = findViewById(R.id.incoming_call_type_text);
+        AvatarView avatarView = findViewById(R.id.incoming_call_avatar);
+        
+        if (callerNameView != null) callerNameView.setText(session.callerName);
+        if (callTypeView != null) {
+            boolean isVideo = "VIDEO".equals(session.callType);
+            callTypeView.setText(isVideo ? "Incoming Video Call... 📹" : "Incoming Audio Call... 📞");
+        }
+        if (avatarView != null) {
+            AvatarState state = friendAvatarStates.get(session.callerName);
+            if (state == null) state = new AvatarState();
+            avatarView.setAvatarState(state);
+        }
+        
+        View acceptBtn = findViewById(R.id.incoming_call_btn_accept);
+        if (acceptBtn != null) {
+            acceptBtn.setOnClickListener(v -> {
+                incomingOverlay.setVisibility(View.GONE);
+                if (callRepo != null) callRepo.acceptCall(session.callId);
+                openActiveCallOverlay(session.callerName, "VIDEO".equals(session.callType));
+                startCallTimer();
+            });
+        }
+        
+        View declineBtn = findViewById(R.id.incoming_call_btn_decline);
+        if (declineBtn != null) {
+            declineBtn.setOnClickListener(v -> {
+                incomingOverlay.setVisibility(View.GONE);
+                if (callRepo != null) callRepo.declineCall(session.callId);
+            });
+        }
+    }
+
     private void setupProfileOverlay() {
         View container = findViewById(R.id.profile_overlay_container);
         View backBtn = findViewById(R.id.profile_btn_back);
@@ -4824,6 +5066,7 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         setupProfileOverlay();
         setupSearchOverlay();
         setupMoreToolsDrawer();
+        setupCallingSystem();
         
         loadLastSavedThumbnail();
     }

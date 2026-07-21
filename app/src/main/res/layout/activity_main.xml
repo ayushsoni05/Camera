@@ -4757,4 +4757,262 @@
         </LinearLayout>
     </FrameLayout>
 
+    <!-- ==================== ACTIVE CALL OVERLAY ==================== -->
+    <FrameLayout
+        android:id="@+id/call_active_overlay_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#FA0B0C10"
+        android:elevation="200dp"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <!-- Live Camera Viewfinder Preview for Video Calls -->
+        <androidx.camera.view.PreviewView
+            android:id="@+id/call_video_preview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+
+        <!-- Dark Gradient Overlay for UI readability -->
+        <View
+            android:id="@+id/call_gradient_shade"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#99000000" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:paddingTop="48dp"
+            android:paddingBottom="36dp"
+            android:gravity="center_horizontal">
+
+            <!-- Top Header Status -->
+            <TextView
+                android:id="@+id/call_type_header"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="SNAPCHAT CALL 📞"
+                android:textColor="@color/snap_yellow"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.1" />
+
+            <TextView
+                android:id="@+id/call_friend_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Alex"
+                android:textColor="@color/white"
+                android:textSize="26sp"
+                android:textStyle="bold"
+                android:layout_marginTop="8dp" />
+
+            <TextView
+                android:id="@+id/call_duration_timer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Ringing..."
+                android:textColor="#B0FFFFFF"
+                android:textSize="14sp"
+                android:layout_marginTop="4dp" />
+
+            <!-- Center Bitmoji Avatar Container -->
+            <FrameLayout
+                android:id="@+id/call_avatar_container"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:layout_margin="32dp">
+
+                <!-- Pulsing Avatar Background Ring -->
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="160dp"
+                    android:layout_height="160dp"
+                    android:layout_gravity="center"
+                    app:cardCornerRadius="80dp"
+                    app:cardBackgroundColor="#20FFFFFF"
+                    app:strokeColor="@color/snap_yellow"
+                    app:strokeWidth="3dp">
+
+                    <com.example.camera.AvatarView
+                        android:id="@+id/call_bitmoji_avatar"
+                        android:layout_width="140dp"
+                        android:layout_height="140dp"
+                        android:layout_gravity="center" />
+                </com.google.android.material.card.MaterialCardView>
+            </FrameLayout>
+
+            <!-- Bottom Call Action Toolbar -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:paddingHorizontal="16dp">
+
+                <!-- Mute Microphone -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/call_btn_mute"
+                    style="@style/Widget.Material3.Button.IconButton"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:backgroundTint="#33FFFFFF"
+                    app:icon="@android:drawable/ic_btn_speak_now"
+                    app:iconTint="@color/white"
+                    app:iconSize="24dp"
+                    android:layout_marginEnd="16dp" />
+
+                <!-- Toggle Speakerphone -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/call_btn_speaker"
+                    style="@style/Widget.Material3.Button.IconButton"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:backgroundTint="#33FFFFFF"
+                    app:icon="@android:drawable/stat_sys_phone_call"
+                    app:iconTint="@color/white"
+                    app:iconSize="24dp"
+                    android:layout_marginEnd="16dp" />
+
+                <!-- Flip Camera (Video Call) -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/call_btn_flip_camera"
+                    style="@style/Widget.Material3.Button.IconButton"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:backgroundTint="#33FFFFFF"
+                    app:icon="@android:drawable/ic_menu_camera"
+                    app:iconTint="@color/white"
+                    app:iconSize="24dp"
+                    android:layout_marginEnd="16dp" />
+
+                <!-- Toggle Video Mode -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/call_btn_toggle_video"
+                    style="@style/Widget.Material3.Button.IconButton"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:backgroundTint="#33FFFFFF"
+                    app:icon="@android:drawable/presence_video_online"
+                    app:iconTint="@color/white"
+                    app:iconSize="24dp"
+                    android:layout_marginEnd="16dp" />
+
+                <!-- End Call Button (Red) -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/call_btn_end"
+                    style="@style/Widget.Material3.Button.IconButton"
+                    android:layout_width="64dp"
+                    android:layout_height="64dp"
+                    android:backgroundTint="#FF2D55"
+                    app:icon="@android:drawable/ic_menu_close_clear_cancel"
+                    app:iconTint="@color/white"
+                    app:iconSize="28dp" />
+            </LinearLayout>
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- ==================== INCOMING CALL OVERLAY ==================== -->
+    <FrameLayout
+        android:id="@+id/call_incoming_overlay_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#CC000000"
+        android:elevation="220dp"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="300dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            app:cardCornerRadius="24dp"
+            app:cardBackgroundColor="#1A1A24"
+            app:strokeColor="@color/snap_yellow"
+            app:strokeWidth="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="28dp">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="90dp"
+                    android:layout_height="90dp"
+                    app:cardCornerRadius="45dp"
+                    app:cardBackgroundColor="#20FFFFFF"
+                    android:layout_marginBottom="16dp">
+
+                    <com.example.camera.AvatarView
+                        android:id="@+id/incoming_call_avatar"
+                        android:layout_width="80dp"
+                        android:layout_height="80dp"
+                        android:layout_gravity="center" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <TextView
+                    android:id="@+id/incoming_caller_name"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Alex"
+                    android:textColor="@color/white"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="4dp" />
+
+                <TextView
+                    android:id="@+id/incoming_call_type_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Incoming Audio Call... 📞"
+                    android:textColor="@color/snap_yellow"
+                    android:textSize="13sp"
+                    android:layout_marginBottom="24dp" />
+
+                <!-- Action Buttons -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center">
+
+                    <!-- Decline -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/incoming_call_btn_decline"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:text="Decline"
+                        android:textColor="@color/white"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="24dp"
+                        android:backgroundTint="#FF2D55"
+                        android:layout_marginEnd="8dp" />
+
+                    <!-- Accept -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/incoming_call_btn_accept"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:text="Accept"
+                        android:textColor="#111119"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="24dp"
+                        android:backgroundTint="#34C759"
+                        android:layout_marginStart="8dp" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </FrameLayout>
+
 </FrameLayout>
