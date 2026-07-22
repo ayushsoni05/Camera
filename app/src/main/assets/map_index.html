@@ -107,6 +107,26 @@
             0% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(255, 252, 0, 0.8); }
             100% { transform: scale(6); opacity: 0; box-shadow: 0 0 0 30px rgba(255, 252, 0, 0); }
         }
+
+        /* Capsule Marker Style */
+        .capsule-marker {
+            width: 28px;
+            height: 28px;
+            background: #FFFC00;
+            border: 2px solid #FFFFFF;
+            border-radius: 50%;
+            box-shadow: 0 0 15px #FFFC00;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: capsule-pulse 1.8s infinite;
+        }
+
+        @keyframes capsule-pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 252, 0, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255, 252, 0, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 252, 0, 0); }
+        }
     </style>
 </head>
 <body>
@@ -116,6 +136,7 @@
         var userMarker = null;
         var friendMarkers = {};
         var hotspotMarkers = {};
+        var capsuleMarkers = {};
         var searchPing = null;
 
         function initMap() {
@@ -248,6 +269,52 @@
                     searchPing = null;
                 }
             }, 3000);
+        }
+
+        // 5. Update Capsule Pins
+        function updateCapsuleLocation(capsuleId, creatorName, lat, lng, message) {
+            if (!map) {
+                setTimeout(function() { updateCapsuleLocation(capsuleId, creatorName, lat, lng, message); }, 200);
+                return;
+            }
+            var latlng = [lat, lng];
+
+            var htmlContent = '<div style="font-size:16px;">⏳</div>';
+            var capsuleIcon = L.divIcon({
+                className: 'capsule-marker',
+                html: htmlContent,
+                iconSize: [28, 28],
+                iconAnchor: [14, 14]
+            });
+
+            if (capsuleMarkers[capsuleId]) {
+                capsuleMarkers[capsuleId].setLatLng(latlng);
+            } else {
+                var marker = L.marker(latlng, {icon: capsuleIcon}).addTo(map);
+                
+                // Show clean Snapchat-styled popup message
+                var popupHtml = '<div style="font-family:sans-serif; color:#FFFFFF; background:#1A1A24; padding:8px 12px; border-radius:12px; border:1px solid #FFFC00; min-width:180px;">' +
+                                '<strong style="color:#FFFC00;">⏳ Time Capsule</strong><br/>' +
+                                '<span style="font-size:11px; color:#80FFFFFF;">By ' + creatorName + '</span><br/>' +
+                                '<p style="margin:6px 0 0 0; font-size:13px;">' + message + '</p>' +
+                                '</div>';
+                marker.bindPopup(popupHtml, {closeButton: false, className: 'capsule-popup'});
+
+                marker.on('click', function() {
+                    marker.openPopup();
+                    if (window.AndroidMap) {
+                        window.AndroidMap.onCapsuleClicked(capsuleId);
+                    }
+                });
+                capsuleMarkers[capsuleId] = marker;
+            }
+        }
+
+        function removeCapsulePin(capsuleId) {
+            if (capsuleMarkers[capsuleId]) {
+                map.removeLayer(capsuleMarkers[capsuleId]);
+                delete capsuleMarkers[capsuleId];
+            }
         }
     </script>
 </body>

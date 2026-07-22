@@ -175,6 +175,19 @@ public class AvatarView extends AppCompatImageView {
             canvas.drawCircle(39, 44, 1.8f, fillPaint);
             canvas.drawCircle(61, 44, 1.8f, fillPaint);
             canvas.drawOval(new RectF(46, 55, 54, 65), fillPaint);
+        } else if (expression.equalsIgnoreCase("sleepy")) {
+            // Draw closed squinty eyes
+            canvas.drawArc(new RectF(34, 41, 44, 47), 180, 180, false, strokePaint);
+            canvas.drawArc(new RectF(56, 41, 66, 47), 180, 180, false, strokePaint);
+            canvas.drawArc(new RectF(44, 55, 56, 62), 0, 180, false, strokePaint);
+        } else if (expression.equalsIgnoreCase("tired")) {
+            // Draw tired sad eyes and droopy mouth
+            fillPaint.setColor(Color.BLACK);
+            canvas.drawCircle(39, 44, 2f, fillPaint);
+            canvas.drawCircle(61, 44, 2f, fillPaint);
+            canvas.drawArc(new RectF(33, 47, 45, 51), 0, 180, false, strokePaint);
+            canvas.drawArc(new RectF(55, 47, 67, 51), 0, 180, false, strokePaint);
+            canvas.drawArc(new RectF(43, 56, 57, 66), 180, 180, false, strokePaint);
         } else {
             fillPaint.setColor(Color.BLACK);
             canvas.drawCircle(39, 44, 3f, fillPaint);

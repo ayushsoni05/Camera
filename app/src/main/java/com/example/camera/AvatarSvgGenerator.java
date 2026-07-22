@@ -43,6 +43,12 @@ public class AvatarSvgGenerator {
         } else if (state.expression.equalsIgnoreCase("surprised")) {
             eyes = "surprised";
             mouth = "open";
+        } else if (state.expression.equalsIgnoreCase("sleepy")) {
+            eyes = "squint";
+            mouth = "neutral";
+        } else if (state.expression.equalsIgnoreCase("tired")) {
+            eyes = "eyeRoll";
+            mouth = "sad";
         }
 
         // Return a fully configured premium DiceBear Adventurer avatar request

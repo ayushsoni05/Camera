@@ -233,6 +233,14 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
     private final Handler callTimerHandler = new Handler(Looper.getMainLooper());
     private Runnable callTimerRunnable;
 
+    // Snaptake Differentiation Features State
+    private CapsuleRepository capsuleRepo;
+    private boolean isDualCameraMode = false;
+    private View dualCameraPreviewFrame;
+    private androidx.camera.view.PreviewView dualViewFinder;
+    private AvatarView dualCameraFallbackAvatar;
+    private float dX, dY;
+
     // Avatar / Bitmoji State
     private AvatarState currentUserAvatarState;
     private final java.util.Map<String, AvatarState> friendAvatarStates = new java.util.HashMap<>();
@@ -253,6 +261,35 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         String color = prefs.getString("avatar_hair_color", "#090806");
         String outfit = prefs.getString("avatar_outfit", "#6366F1");
         String expr = prefs.getString("avatar_expr", "happy");
+        
+        // --- LiveMood Pin logic: Dynamic Smart Avatar updates ---
+        // 1. Low battery check (< 20%) -> tired expression
+        try {
+            android.content.IntentFilter ifilter = new android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED);
+            android.content.Intent batteryStatus = registerReceiver(null, ifilter);
+            if (batteryStatus != null) {
+                int level = batteryStatus.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
+                int scale = batteryStatus.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1);
+                float pct = (level / (float) scale) * 100;
+                if (pct < 20) {
+                    expr = "tired";
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Battery status check failed", e);
+        }
+
+        // 2. Sleep time check (10 PM - 6 AM) -> sleepy expression
+        try {
+            java.util.Calendar cal = java.util.Calendar.getInstance();
+            int hour = cal.get(java.util.Calendar.HOUR_OF_DAY);
+            if (hour >= 22 || hour < 6) {
+                expr = "sleepy";
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Hour of day check failed", e);
+        }
+
         currentUserAvatarState = new AvatarState(skin, style, color, outfit, expr);
     }
 
@@ -3622,6 +3659,109 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         }
     }
 
+    private void setupSnaptakeDifferentiationFeatures() {
+        capsuleRepo = new CapsuleRepository();
+
+        // 1. Geolocated Map Time Capsules
+        View btnDropCapsule = findViewById(R.id.btn_map_drop_capsule);
+        View capsuleOverlay = findViewById(R.id.map_capsule_post_overlay);
+        if (btnDropCapsule != null && capsuleOverlay != null) {
+            btnDropCapsule.setOnClickListener(v -> {
+                EditText input = findViewById(R.id.capsule_input_message);
+                if (input != null) input.setText("");
+                capsuleOverlay.setVisibility(View.VISIBLE);
+            });
+        }
+
+        View cancelCapsuleBtn = findViewById(R.id.btn_capsule_cancel);
+        if (cancelCapsuleBtn != null && capsuleOverlay != null) {
+            cancelCapsuleBtn.setOnClickListener(v -> capsuleOverlay.setVisibility(View.GONE));
+        }
+
+        View submitCapsuleBtn = findViewById(R.id.btn_capsule_submit);
+        if (submitCapsuleBtn != null && capsuleOverlay != null) {
+            submitCapsuleBtn.setOnClickListener(v -> {
+                EditText inputMessage = findViewById(R.id.capsule_input_message);
+                android.widget.RadioGroup durationGroup = findViewById(R.id.capsule_duration_group);
+                if (inputMessage == null) return;
+                
+                String message = inputMessage.getText().toString().trim();
+                if (message.isEmpty()) {
+                    showToast("Please enter a capsule message!");
+                    return;
+                }
+
+                int durationHours = 4; // default
+                if (durationGroup != null) {
+                    int checkedId = durationGroup.getCheckedRadioButtonId();
+                    if (checkedId == R.id.radio_dur_2h) durationHours = 2;
+                    else if (checkedId == R.id.radio_dur_24h) durationHours = 24;
+                }
+
+                // Drop the Time Capsule at the user's current GPS location
+                capsuleRepo.postCapsule(currentTestingUserId, lastUserLat, lastUserLng, message, durationHours);
+                capsuleOverlay.setVisibility(View.GONE);
+                showToast("Time Capsule Dropped! ⏳");
+            });
+        }
+
+        // Live refresh and sync Map Time Capsules
+        capsuleRepo.listenForCapsules(capsules -> {
+            runOnUiThread(() -> {
+                if (mapWebView != null) {
+                    mapWebView.post(() -> {
+                        for (Map.Entry<String, CapsuleRepository.TimeCapsule> entry : capsules.entrySet()) {
+                            CapsuleRepository.TimeCapsule cap = entry.getValue();
+                            mapWebView.loadUrl("javascript:updateCapsuleLocation('" + cap.capsuleId + "', '" + cap.creatorName + "', " + cap.latitude + ", " + cap.longitude + ", '" + cap.message.replace("'", "\\'") + "')");
+                        }
+                    });
+                }
+            });
+        });
+
+        // 2. Snaptake Dual Camera preview and draggable setup
+        dualCameraPreviewFrame = findViewById(R.id.dual_camera_preview_frame);
+        dualViewFinder = findViewById(R.id.dualViewFinder);
+        dualCameraFallbackAvatar = findViewById(R.id.dual_camera_fallback_avatar);
+
+        // Add premium draggable gesture support for the PiP frame
+        if (dualCameraPreviewFrame != null) {
+            dualCameraPreviewFrame.setOnTouchListener(new View.OnTouchListener() {
+                @Override
+                public boolean onTouch(View view, MotionEvent event) {
+                    switch (event.getAction()) {
+                        case MotionEvent.ACTION_DOWN:
+                            dX = view.getX() - event.getRawX();
+                            dY = view.getY() - event.getRawY();
+                            break;
+                        case MotionEvent.ACTION_MOVE:
+                            view.animate()
+                                .x(event.getRawX() + dX)
+                                .y(event.getRawY() + dY)
+                                .setDuration(0)
+                                .start();
+                            break;
+                        default:
+                            return false;
+                    }
+                    return true;
+                }
+            });
+        }
+
+        android.widget.Switch dualModeSwitch = findViewById(R.id.tool_toggle_dual_mode);
+        if (dualModeSwitch != null) {
+            dualModeSwitch.setOnCheckedChangeListener((btn, isChecked) -> {
+                isDualCameraMode = isChecked;
+                if (dualCameraPreviewFrame != null) {
+                    dualCameraPreviewFrame.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+                }
+                showToast(isChecked ? "Snaptake Dual Mode Enabled 📷" : "Standard Viewfinder Mode 📷");
+                startCamera();
+            });
+        }
+    }
+
     private void setupProfileOverlay() {
         View container = findViewById(R.id.profile_overlay_container);
         View backBtn = findViewById(R.id.profile_btn_back);
@@ -5067,6 +5207,7 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         setupSearchOverlay();
         setupMoreToolsDrawer();
         setupCallingSystem();
+        setupSnaptakeDifferentiationFeatures();
         
         loadLastSavedThumbnail();
     }
@@ -7111,6 +7252,31 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
 
                 preview = new Preview.Builder().build();
                 preview.setSurfaceProvider(viewFinder.getSurfaceProvider());
+
+                // Set up Dual Camera viewfinder preview layout if mode is active
+                if (isDualCameraMode && dualViewFinder != null) {
+                    try {
+                        Preview dualPreview = new Preview.Builder().build();
+                        dualPreview.setSurfaceProvider(dualViewFinder.getSurfaceProvider());
+                        CameraSelector frontSelector = new CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_FRONT).build();
+                        
+                        // Bind front preview concurrently
+                        provider.bindToLifecycle(this, frontSelector, dualPreview);
+                        
+                        if (dualViewFinder != null) dualViewFinder.setVisibility(View.VISIBLE);
+                        if (dualCameraFallbackAvatar != null) dualCameraFallbackAvatar.setVisibility(View.GONE);
+                    } catch (Exception ex) {
+                        Log.e(TAG, "Concurrent front camera binding failed, loading dynamic fallback avatar", ex);
+                        // Safe fallback: Draw dynamic local Bitmoji reaction avatar inside the PiP viewfinder!
+                        runOnUiThread(() -> {
+                            if (dualViewFinder != null) dualViewFinder.setVisibility(View.GONE);
+                            if (dualCameraFallbackAvatar != null) {
+                                dualCameraFallbackAvatar.setVisibility(View.VISIBLE);
+                                dualCameraFallbackAvatar.setAvatarState(currentUserAvatarState);
+                            }
+                        });
+                    }
+                }
 
                 CameraSelector selector = new CameraSelector.Builder().requireLensFacing(lensFacing).build();
 
