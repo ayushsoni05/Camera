@@ -1739,7 +1739,88 @@
         <FrameLayout
             android:id="@+id/post_capture_overlay_container"
             android:layout_width="match_parent"
-            android:layout_height="match_parent" />
+            android:layout_height="match_parent">
+
+            <!-- Speedometer Sticker -->
+            <TextView
+                android:id="@+id/shutter_speedometer_sticker"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="0 km/h"
+                android:textColor="@color/snap_yellow"
+                android:textSize="36sp"
+                android:textStyle="bold"
+                android:visibility="gone"
+                android:shadowColor="#000000"
+                android:shadowDx="2"
+                android:shadowDy="2"
+                android:shadowRadius="4" />
+
+            <!-- Watermark Stencil -->
+            <ImageView
+                android:id="@+id/shutter_watermark_sticker"
+                android:layout_width="100dp"
+                android:layout_height="50dp"
+                android:layout_gravity="bottom|end"
+                android:layout_margin="16dp"
+                android:visibility="gone"
+                android:src="@drawable/ic_snaptake_logo_vector" />
+
+            <!-- Interactive Poll Sticker -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/interactive_poll_sticker"
+                android:layout_width="220dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:visibility="gone"
+                app:cardCornerRadius="16dp"
+                app:cardBackgroundColor="#CC1D1D2B"
+                app:strokeColor="@color/snap_yellow"
+                app:strokeWidth="1.5dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+                    <TextView
+                        android:id="@+id/poll_question_text"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Cool Snaptake snap? 📸"
+                        android:textColor="@color/white"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:gravity="center"
+                        android:layout_marginBottom="12dp" />
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+                        <Button
+                            android:id="@+id/btn_poll_yes"
+                            android:layout_width="0dp"
+                            android:layout_height="36dp"
+                            android:layout_weight="1"
+                            android:text="Yes 👍"
+                            android:textSize="11sp"
+                            android:backgroundTint="@color/snap_yellow"
+                            android:textColor="#111119"
+                            android:layout_marginEnd="6dp" />
+                        <Button
+                            android:id="@+id/btn_poll_no"
+                            android:layout_width="0dp"
+                            android:layout_height="36dp"
+                            android:layout_weight="1"
+                            android:text="No 👎"
+                            android:textSize="11sp"
+                            android:backgroundTint="#40FFFFFF"
+                            android:textColor="@color/white"
+                            android:layout_marginStart="6dp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+        </FrameLayout>
 
         <!-- Top toolbar for post-capture -->
         <LinearLayout
@@ -5218,6 +5299,247 @@
                 </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
+    </FrameLayout>
+
+    <!-- ==================== CHAT SKETCH CANVAS OVERLAY ==================== -->
+    <FrameLayout
+        android:id="@+id/chat_drawing_canvas_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#D00B0C10"
+        android:elevation="240dp"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="340dp"
+            android:layout_height="500dp"
+            android:layout_gravity="center"
+            app:cardCornerRadius="24dp"
+            app:cardBackgroundColor="#1A1A24"
+            app:strokeColor="@color/snap_yellow"
+            app:strokeWidth="2dp">
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:padding="20dp">
+
+                <TextView
+                    android:id="@+id/chat_sketch_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Chat Sketch Canvas 🎨"
+                    android:textColor="@color/snap_yellow"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_alignParentTop="true"
+                    android:layout_centerHorizontal="true"
+                    android:layout_marginBottom="12dp" />
+
+                <!-- Canvas Board -->
+                <com.example.camera.DoodleView
+                    android:id="@+id/chat_doodle_view"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:layout_below="@id/chat_sketch_title"
+                    android:layout_above="@+id/chat_sketch_actions"
+                    android:background="#25FFFFFF"
+                    android:layout_marginBottom="16dp" />
+
+                <!-- Sketch Canvas Actions -->
+                <LinearLayout
+                    android:id="@+id/chat_sketch_actions"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_alignParentBottom="true">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center"
+                        android:layout_marginBottom="16dp">
+                        <Button
+                            android:id="@+id/btn_sketch_color_red"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
+                            android:backgroundTint="#FF2D55"
+                            android:layout_margin="4dp" />
+                        <Button
+                            android:id="@+id/btn_sketch_color_yellow"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
+                            android:backgroundTint="#FFFC00"
+                            android:layout_margin="4dp" />
+                        <Button
+                            android:id="@+id/btn_sketch_color_green"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
+                            android:backgroundTint="#34C759"
+                            android:layout_margin="4dp" />
+                        <Button
+                            android:id="@+id/btn_sketch_color_blue"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
+                            android:backgroundTint="#007AFF"
+                            android:layout_margin="4dp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+                        <Button
+                            android:id="@+id/btn_sketch_clear"
+                            android:layout_width="0dp"
+                            android:layout_height="44dp"
+                            android:layout_weight="1"
+                            android:text="Clear"
+                            android:textColor="@color/white"
+                            android:backgroundTint="#40FFFFFF"
+                            android:layout_marginEnd="6dp" />
+                        <Button
+                            android:id="@+id/btn_sketch_cancel"
+                            android:layout_width="0dp"
+                            android:layout_height="44dp"
+                            android:layout_weight="1"
+                            android:text="Cancel"
+                            android:textColor="@color/white"
+                            android:backgroundTint="#FF2D55"
+                            android:layout_marginEnd="6dp" />
+                        <Button
+                            android:id="@+id/btn_sketch_send"
+                            android:layout_width="0dp"
+                            android:layout_height="44dp"
+                            android:layout_weight="1.3"
+                            android:text="Send Sketch 🎨"
+                            android:textColor="#111119"
+                            android:backgroundTint="@color/snap_yellow"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+            </RelativeLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </FrameLayout>
+
+    <!-- ==================== LENS PRESET ADJUST SLIDERS ==================== -->
+    <FrameLayout
+        android:id="@+id/preset_sliders_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="#E0111119"
+        android:elevation="240dp"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Filter Preset Mixer 🎚️"
+                android:textColor="@color/snap_yellow"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="16dp" />
+
+            <!-- Exposure -->
+            <TextView
+                android:id="@+id/txt_label_exposure"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Exposure Offset: 0.0"
+                android:textColor="@color/white"
+                android:textSize="12sp" />
+            <SeekBar
+                android:id="@+id/slider_exposure"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="40"
+                android:progress="20"
+                android:layout_marginBottom="12dp" />
+
+            <!-- Contrast -->
+            <TextView
+                android:id="@+id/txt_label_contrast"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Contrast Factor: 1.0"
+                android:textColor="@color/white"
+                android:textSize="12sp" />
+            <SeekBar
+                android:id="@+id/slider_contrast"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="30"
+                android:progress="15"
+                android:layout_marginBottom="12dp" />
+
+            <!-- Tint -->
+            <TextView
+                android:id="@+id/txt_label_tint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Color Tint: 0.0"
+                android:textColor="@color/white"
+                android:textSize="12sp" />
+            <SeekBar
+                android:id="@+id/slider_tint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="20"
+                android:progress="10"
+                android:layout_marginBottom="12dp" />
+
+            <!-- Vignette -->
+            <TextView
+                android:id="@+id/txt_label_vignette"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Vignette Intensity: 0.0"
+                android:textColor="@color/white"
+                android:textSize="12sp" />
+            <SeekBar
+                android:id="@+id/slider_vignette"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="10"
+                android:progress="0"
+                android:layout_marginBottom="20dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <Button
+                    android:id="@+id/btn_close_preset"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_weight="1"
+                    android:text="Close"
+                    android:textColor="@color/white"
+                    android:backgroundTint="#FF2D55"
+                    android:layout_marginEnd="6dp" />
+                <Button
+                    android:id="@+id/btn_save_preset"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_weight="1.3"
+                    android:text="Save Preset 💾"
+                    android:textColor="#111119"
+                    android:backgroundTint="@color/snap_yellow"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
     </FrameLayout>
 
 </FrameLayout>
