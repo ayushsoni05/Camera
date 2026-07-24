@@ -7442,7 +7442,10 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
                                     .addOnSuccessListener(faces -> {
                                         FaceOverlayView overlay = findViewById(R.id.face_overlay);
                                         if (overlay != null) {
-                                            overlay.setFaces(faces, width, height, isFront);
+                                            boolean isRotated = (orientation == 90 || orientation == 270);
+                                            int finalWidth = isRotated ? height : width;
+                                            int finalHeight = isRotated ? width : height;
+                                            overlay.setFaces(faces, finalWidth, finalHeight, isFront);
                                             if (activeMode == CaptureMode.PHOTO && !faces.isEmpty() && isSmileShutterEnabled) {
                                                 for (com.google.mlkit.vision.face.Face face : faces) {
                                                     if (face.getSmilingProbability() != null && face.getSmilingProbability() > 0.85f) {
