@@ -29,6 +29,26 @@
             android:name="com.snap.camerakit.api.token"
             android:value="eyJhbGciOiJIUzI1NiIsImtpZCI6IkNhbnZhc1MyU0hNQUNQcm9kIiwidHlwIjoiSldUIn0.eyJhdWQiOiJjYW52YXMtY2FudmFzYXBpIiwiaXNzIjoiY2FudmFzLXMyc3Rva2VuIiwibmJmIjoxNzg0MTk0NDc3LCJzdWIiOiI0YjE4Yjk0Ny1mYTFmLTRkMDEtOWQ5ZC04ODRkZDljMDFiMTB-U1RBR0lOR35kOGQ3M2NhNS0zMDJkLTQyYWMtYjBhMy0wY2FkMDgxNTE4ZDMifQ.8Gj9OxfiOyBZ-T-tv5QnkUX2UWhm0Ji5wHwlqUNV0Zw" />
 
+        <!-- Snapchat Login & Bitmoji SDK Staging Credentials -->
+        <meta-data
+            android:name="com.snapchat.kit.sdk.clientId"
+            android:value="edda08fc-d362-40ab-aa5d-c97ffef437a1" />
+        <meta-data
+            android:name="com.snapchat.kit.sdk.redirectUrl"
+            android:value="snaptake://snap-kit/oauth2" />
+
+        <activity
+            android:name="com.snap.kit.sdk.SnapKitActivity"
+            android:launchMode="singleTask"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="snaptake" android:host="snap-kit" android:path="/oauth2" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".AuthActivity"
             android:exported="true">
