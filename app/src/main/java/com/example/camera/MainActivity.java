@@ -263,6 +263,10 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
         String color = prefs.getString("avatar_hair_color", "#090806");
         String outfit = prefs.getString("avatar_outfit", "#6366F1");
         String expr = prefs.getString("avatar_expr", "happy");
+        String eyebrows = prefs.getString("avatar_eyebrows", "default");
+        String mouth = prefs.getString("avatar_mouth", "default");
+        String accs = prefs.getString("avatar_accessories", "blank");
+        String beard = prefs.getString("avatar_facial_hair", "blank");
         
         // --- LiveMood Pin logic: Dynamic Smart Avatar updates ---
         // 1. Low battery check (< 20%) -> tired expression
@@ -292,7 +296,21 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             Log.e(TAG, "Hour of day check failed", e);
         }
 
-        currentUserAvatarState = new AvatarState(skin, style, color, outfit, expr);
+        currentUserAvatarState = new AvatarState(skin, style, color, outfit, expr, eyebrows, mouth, accs, beard);
+
+        // Refresh views
+        AvatarView topBarAvatar = findViewById(R.id.top_bar_avatar_view);
+        if (topBarAvatar != null) {
+            topBarAvatar.setAvatarState(currentUserAvatarState);
+        }
+        AvatarView profileAvatar = findViewById(R.id.profile_avatar_view);
+        if (profileAvatar != null) {
+            profileAvatar.setAvatarState(currentUserAvatarState);
+        }
+        AvatarView dualCameraFallbackAvatar = findViewById(R.id.dual_camera_fallback_avatar);
+        if (dualCameraFallbackAvatar != null) {
+            dualCameraFallbackAvatar.setAvatarState(currentUserAvatarState);
+        }
     }
 
     private void saveCurrentUserAvatar(AvatarState state) {
@@ -3927,10 +3945,9 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
             });
         }
 
-        // Edit avatar card click listener
         View editAvatarBtn = findViewById(R.id.profile_edit_avatar_card);
         if (editAvatarBtn != null) {
-            editAvatarBtn.setOnClickListener(v -> showAvatarCustomizerOverlay());
+            editAvatarBtn.setOnClickListener(v -> startActivity(new android.content.Intent(MainActivity.this, MemojiEditorActivity.class)));
         }
 
         // Settings Gear Click
@@ -7202,6 +7219,7 @@ public class MainActivity extends AppCompatActivity implements android.hardware.
     @Override
     protected void onResume() {
         super.onResume();
+        loadCurrentUserAvatar();
         if (rotationSensor != null) {
             sensorManager.registerListener(this, rotationSensor, android.hardware.SensorManager.SENSOR_DELAY_UI);
         }

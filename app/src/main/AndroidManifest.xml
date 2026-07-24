@@ -62,6 +62,10 @@
         <activity
             android:name=".MainActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".MemojiEditorActivity"
+            android:exported="false" />
     </application>
 
 </manifest>

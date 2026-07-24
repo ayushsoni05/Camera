@@ -17,48 +17,44 @@ public class AvatarSvgGenerator {
         String hairColor = state.hairColor.replace("#", "").toLowerCase();
         String outfit = state.outfitColor.replace("#", "").toLowerCase();
         
-        // Map simplified style choices to high-quality DiceBear parameters
-        String hairStyle = "short05";
-        if (state.hairStyle.equalsIgnoreCase("bald")) {
-            hairStyle = "bald";
-        } else if (state.hairStyle.equalsIgnoreCase("short")) {
-            hairStyle = "short01";
-        } else if (state.hairStyle.equalsIgnoreCase("medium")) {
-            hairStyle = "long05";
-        } else if (state.hairStyle.equalsIgnoreCase("long")) {
-            hairStyle = "long10";
+        // Map hair styles
+        String top = state.hairStyle;
+        if (top.equalsIgnoreCase("short")) {
+            top = "shortHair";
+        } else if (top.equalsIgnoreCase("medium")) {
+            top = "longHairCurly";
+        } else if (top.equalsIgnoreCase("long")) {
+            top = "longHairStraight";
+        } else if (top.equalsIgnoreCase("bald")) {
+            top = "noHair";
         }
 
-        String eyes = "default";
-        String mouth = "smile";
-        String features = "";
-        
-        if (state.expression.equalsIgnoreCase("cool")) {
-            eyes = "default";
-            mouth = "neutral";
-            features = "glasses"; // Adds cool glasses
-        } else if (state.expression.equalsIgnoreCase("wink")) {
+        // Map expressions/eyes
+        String eyes = state.expression;
+        if (eyes.equalsIgnoreCase("happy")) {
+            eyes = "happy";
+        } else if (eyes.equalsIgnoreCase("wink")) {
             eyes = "wink";
-            mouth = "smile";
-        } else if (state.expression.equalsIgnoreCase("surprised")) {
+        } else if (eyes.equalsIgnoreCase("surprised")) {
             eyes = "surprised";
-            mouth = "open";
-        } else if (state.expression.equalsIgnoreCase("sleepy")) {
+        } else if (eyes.equalsIgnoreCase("sleepy")) {
             eyes = "squint";
-            mouth = "neutral";
-        } else if (state.expression.equalsIgnoreCase("tired")) {
+        } else if (eyes.equalsIgnoreCase("tired")) {
             eyes = "eyeRoll";
-            mouth = "sad";
+        } else if (eyes.equalsIgnoreCase("cool")) {
+            eyes = "winkWacky";
         }
 
-        // Return a fully configured premium DiceBear Adventurer avatar request
-        return "https://api.dicebear.com/7.x/adventurer/" + format + "?seed=snaptake" +
+        // Return a fully configured premium DiceBear Avataaars vector request
+        return "https://api.dicebear.com/7.x/avataaars/" + format + "?seed=snaptake" +
                "&skinColor=" + skin +
-               "&hair=" + hairStyle +
-               "&hairColor=" + hairColor +
+               "&top=" + top +
+               "&topColor=" + hairColor +
                "&clothingColor=" + outfit +
                "&eyes=" + eyes +
-               "&mouth=" + mouth +
-               (features.isEmpty() ? "" : "&features=" + features);
+               "&eyebrows=" + state.eyebrowsStyle +
+               "&mouth=" + state.mouthStyle +
+               "&accessories=" + state.accessories +
+               "&facialHair=" + state.facialHair;
     }
 }
